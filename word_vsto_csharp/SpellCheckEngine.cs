@@ -5,22 +5,45 @@ using System.Collections.Generic;
 
 namespace KrutiDevWordAddIn
 {
-    public class TrieNode
+    public class SpellingIssue
     {
-        public Dictionary<char, TrieNode> Children = new Dictionary<char, TrieNode>();
-        public bool IsEndOfWord = false;
-        public int Frequency = 0;
-        public string UnicodeWord = "";
-        public string KrutiWord = "";
-        public string Category = "general";
+        public string OriginalWord;
+        public string SuggestedWord;
+        public string OriginalWordKruti;
+        public string SuggestedWordKruti;
+        public string Message;
+        public bool IsUnicode;
     }
 
     public class SpellCheckEngine
     {
-        private TrieNode root = new TrieNode();
         public HashSet<string> UnicodeDictionary = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public HashSet<string> KrutiDictionary = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        private GrammarRulesEngine grammarEngine = new GrammarRulesEngine();
+        
+        // Common official Hindi spelling error corrections (both Unicode and Kruti)
+        private static readonly Dictionary<string, string> CommonTypoCorrections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            // Frequent typos in Jharkhand office drafting
+            {"जिंला", "जिला"}, {"जिल्ला", "जिला"}, {"जिलें", "जिले"},
+            {"पृष्ट", "पृष्ठ"}, {"पृष्ट संख्या", "पृष्ठ संख्या"},
+            {"सञ्चिका", "संचिका"}, {"संन्चिका", "संचिका"},
+            {"कार्यलय", "कार्यालय"}, {"कार्यालयी", "कार्यालयीय"},
+            {"कारवाई", "कार्रवाई"}, {"कार्यवाही", "कार्रवाई"},
+            {"अदिशक", "अधीक्षक"}, {"अधिक्षक", "अधीक्षक"}, {"अधीछक", "अधीक्षक"},
+            {"सरायकेल्ला", "सरायकेला"}, {"सराइकेला", "सरायकेला"}, {"खरसावां", "खरसावाँ"}, {"खरसवां", "खरसावाँ"},
+            {"पदाधिकारीगणों", "पदाधिकारियों"}, {"पदाधिकारीयों", "पदाधिकारियों"},
+            {"प्राथमीक", "प्राथमिक"}, {"माध्यमीक", "माध्यमिक"},
+            {"शिक्षीका", "शिक्षिका"}, {"शिक्षको", "शिक्षकों"},
+            {"विदयालय", "विद्यालय"}, {"विध्यालय", "विद्यालय"},
+            {"प्रतिवेदनं", "प्रतिवेदन"}, {"अनुपालना", "अनुपालन"},
+            {"शोकॉज", "स्पष्टीकरण"}, {"शोकौज", "स्पष्टीकरण"},
+            {"विश्वासभाजन", "विश्वासभाजन"}, {"भवदिय", "भवदीय"},
+            {"हस्ताक्शर", "हस्ताक्षर"}, {"हस्ताकक्षर", "हस्ताक्षर"},
+            {"उपस्थीती", "उपस्थिति"}, {"उपस्थिती", "उपस्थिति"},
+            {"स्वीकृती", "स्वीकृति"}, {"अस्वीकृती", "अस्वीकृति"},
+            {"निलंबण", "निलंबन"}, {"वेतनमानं", "वेतनमान"},
+            {"अधोहस्ताक्षरी", "अधोहस्ताक्षरी"}, {"अधोहस्ताछरी", "अधोहस्ताक्षरी"}
+        };
 
         public SpellCheckEngine()
         {
@@ -29,7 +52,6 @@ namespace KrutiDevWordAddIn
 
         private void LoadEmbeddedDictionary()
         {
-            // Base official words
             string[] baseWords = new string[] {
                 "कार्यालय", "कार्यालय-आदेश", "शिक्षा", "विभाग", "झारखण्ड", "राँची", "सरायकेला", "खरसावाँ",
                 "प्राथमिक", "माध्यमिक", "उच्च", "न्यायालय", "पदाधिकारी", "अधीक्षक", "निदेशक", "आदेश",
@@ -42,16 +64,17 @@ namespace KrutiDevWordAddIn
                 "जाते", "द्वारा", "तथा", "एवं", "अथवा", "यदि", "तो", "इस", "उस", "सभी", "प्राप्त",
                 "प्रस्तुत", "निर्देश", "निर्देशित", "समीक्षा", "बैठक", "निर्णय", "प्रस्ताव", "अनुमोदन",
                 "टिप्पणी", "पंजी", "अवर", "प्रखंड", "क्षेत्रीय", "संयुक्त", "इचागढ़", "कुकडू", "चांडिल",
-                "राजनगर", "गम्हरिया", "खूँटी", "जमशेदपुर", "चाईबासा", "धनबाद", "बोकारो", "हजारीबाग"
+                "राजनगर", "गम्हरिया", "खूँटी", "जमशेदपुर", "चाईबासा", "धनबाद", "बोकारो", "हजारीबाग",
+                "जिला", "पृष्ठ", "अधीक्षक", "विश्वासभाजन", "प्रेषक", "अधोहस्ताक्षरी"
             };
 
             foreach (var w in baseWords)
             {
-                AddWord(w, 100);
+                AddWord(w);
             }
         }
 
-        public void AddWord(string unicodeWord, int freq)
+        public void AddWord(string unicodeWord)
         {
             if (string.IsNullOrEmpty(unicodeWord)) return;
             string krutiWord = KrutiDevConverter.UnicodeToKruti(unicodeWord);
@@ -60,96 +83,152 @@ namespace KrutiDevWordAddIn
             if (!string.IsNullOrEmpty(krutiWord))
             {
                 KrutiDictionary.Add(krutiWord);
-                InsertToTrie(krutiWord, unicodeWord, freq);
             }
         }
 
-        private void InsertToTrie(string krutiWord, string unicodeWord, int freq)
+        public List<SpellingIssue> CheckDocumentSpellingAndGrammar(string docText)
         {
-            TrieNode node = root;
-            foreach (char c in krutiWord)
+            List<SpellingIssue> issues = new List<SpellingIssue>();
+            if (string.IsNullOrEmpty(docText)) return issues;
+
+            // Detect if doc text is mostly Unicode or Kruti Dev
+            bool isUnicode = ContainsDevanagari(docText);
+
+            string[] tokens = docText.Split(new char[] { ' ', '\t', '\r', '\n', '।', ',', '.', ':', ';', '(', ')', '[', ']', '{', '}', '"', '\'' }, StringSplitOptions.RemoveEmptyEntries);
+
+            HashSet<string> seenWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            for (int i = 0; i < tokens.Length; i++)
             {
-                if (!node.Children.ContainsKey(c))
+                string word = tokens[i].Trim();
+                if (string.IsNullOrEmpty(word) || word.Length <= 1 || IsNumeric(word) || seenWords.Contains(word))
+                    continue;
+
+                seenWords.Add(word);
+
+                // 1. Check known common typos dictionary
+                if (isUnicode)
                 {
-                    node.Children[c] = new TrieNode();
+                    if (CommonTypoCorrections.ContainsKey(word))
+                    {
+                        string corrected = CommonTypoCorrections[word];
+                        issues.Add(new SpellingIssue
+                        {
+                            OriginalWord = word,
+                            SuggestedWord = corrected,
+                            OriginalWordKruti = KrutiDevConverter.UnicodeToKruti(word),
+                            SuggestedWordKruti = KrutiDevConverter.UnicodeToKruti(corrected),
+                            Message = "अशुद्ध वर्तनी: '" + word + "' के स्थान पर '" + corrected + "' का प्रयोग करें।",
+                            IsUnicode = true
+                        });
+                        continue;
+                    }
                 }
-                node = node.Children[c];
+                else
+                {
+                    // Kruti Dev text
+                    string uniWord = KrutiDevConverter.KrutiToUnicode(word);
+                    if (CommonTypoCorrections.ContainsKey(uniWord))
+                    {
+                        string correctedUni = CommonTypoCorrections[uniWord];
+                        string correctedKruti = KrutiDevConverter.UnicodeToKruti(correctedUni);
+                        issues.Add(new SpellingIssue
+                        {
+                            OriginalWord = word,
+                            SuggestedWord = correctedKruti,
+                            OriginalWordKruti = word,
+                            SuggestedWordKruti = correctedKruti,
+                            Message = "अशुद्ध वर्तनी (कृति देव): '" + uniWord + "' (" + word + ") -> '" + correctedUni + "' (" + correctedKruti + ")",
+                            IsUnicode = false
+                        });
+                        continue;
+                    }
+                }
+
+                // 2. Fuzzy match against standard dictionary
+                string targetUni = isUnicode ? word : KrutiDevConverter.KrutiToUnicode(word);
+                if (!UnicodeDictionary.Contains(targetUni))
+                {
+                    string bestMatch = GetBestFuzzyMatch(targetUni);
+                    if (!string.IsNullOrEmpty(bestMatch) && bestMatch != targetUni)
+                    {
+                        issues.Add(new SpellingIssue
+                        {
+                            OriginalWord = word,
+                            SuggestedWord = isUnicode ? bestMatch : KrutiDevConverter.UnicodeToKruti(bestMatch),
+                            OriginalWordKruti = isUnicode ? KrutiDevConverter.UnicodeToKruti(word) : word,
+                            SuggestedWordKruti = KrutiDevConverter.UnicodeToKruti(bestMatch),
+                            Message = "सुझाव: '" + targetUni + "' के लिए सही शब्द '" + bestMatch + "' हो सकता है।",
+                            IsUnicode = isUnicode
+                        });
+                    }
+                }
             }
-            node.IsEndOfWord = true;
-            if (freq > node.Frequency) node.Frequency = freq;
-            node.UnicodeWord = unicodeWord;
-            node.KrutiWord = krutiWord;
+
+            return issues;
         }
 
-        public List<string> Autocomplete(string prefixKruti, int maxResults)
+        private string GetBestFuzzyMatch(string uniWord)
         {
-            List<string> results = new List<string>();
-            if (string.IsNullOrEmpty(prefixKruti)) return results;
+            string best = "";
+            int minDistance = int.MaxValue;
 
-            TrieNode node = root;
-            foreach (char c in prefixKruti)
+            foreach (var dictWord in UnicodeDictionary)
             {
-                if (!node.Children.ContainsKey(c)) return results;
-                node = node.Children[c];
+                if (Math.Abs(dictWord.Length - uniWord.Length) <= 2)
+                {
+                    int dist = Levenshtein(uniWord, dictWord);
+                    if (dist < minDistance && dist <= 2)
+                    {
+                        minDistance = dist;
+                        best = dictWord;
+                    }
+                }
             }
-
-            CollectWords(node, results, maxResults);
-            return results;
+            return best;
         }
 
-        private void CollectWords(TrieNode node, List<string> results, int maxResults)
+        public List<string> GetWordSuggestions(string prefix, int maxResults)
         {
-            if (results.Count >= maxResults) return;
-            if (node.IsEndOfWord)
+            List<string> suggestions = new List<string>();
+            if (string.IsNullOrEmpty(prefix)) return suggestions;
+
+            bool isUnicode = ContainsDevanagari(prefix);
+            string uniPrefix = isUnicode ? prefix : KrutiDevConverter.KrutiToUnicode(prefix);
+
+            foreach (var word in UnicodeDictionary)
             {
-                results.Add(node.UnicodeWord + " (" + node.KrutiWord + ")");
+                if (word.StartsWith(uniPrefix))
+                {
+                    string kruti = KrutiDevConverter.UnicodeToKruti(word);
+                    suggestions.Add(word + "  [" + kruti + "]");
+                    if (suggestions.Count >= maxResults) break;
+                }
             }
-            foreach (var child in node.Children.Values)
-            {
-                CollectWords(child, results, maxResults);
-            }
+
+            return suggestions;
         }
 
-        public bool IsValidKrutiWord(string krutiWord)
+        public static bool ContainsDevanagari(string text)
         {
-            string clean = krutiWord.Trim(new char[] { ' ', '.', ',', '%', ':', ';', '(', ')', '[', ']', '{', '}', '\'', '"', '-', 'A', ']', '[' });
-            if (string.IsNullOrEmpty(clean)) return true;
-            
-            if (KrutiDictionary.Contains(clean)) return true;
-
-            string uForm = KrutiDevConverter.KrutiToUnicode(clean);
-            if (UnicodeDictionary.Contains(uForm)) return true;
-
+            foreach (char c in text)
+            {
+                if (c >= '\u0900' && c <= '\u097F') return true;
+            }
             return false;
         }
 
-        public string SuggestCorrection(string misspelledKruti)
+        private static bool IsNumeric(string text)
         {
-            string clean = misspelledKruti.Trim(new char[] { ' ', '.', ',', '%', ':', ';', '(', ')', '[', ']', '{', '}', '\'', '"', '-', 'A', ']', '[' });
-            if (string.IsNullOrEmpty(clean)) return clean;
-
-            string uMisspelled = KrutiDevConverter.KrutiToUnicode(clean);
-            string bestMatch = "";
-            int bestDist = int.MaxValue;
-
-            foreach (string uWord in UnicodeDictionary)
+            foreach (char c in text)
             {
-                int dist = Levenshtein(uMisspelled, uWord);
-                if (dist < bestDist && dist <= 2)
-                {
-                    bestDist = dist;
-                    bestMatch = uWord;
-                }
+                if (!char.IsDigit(c) && c != '०' && c != '१' && c != '२' && c != '३' && c != '४' && c != '५' && c != '६' && c != '७' && c != '८' && c != '९')
+                    return false;
             }
-
-            if (!string.IsNullOrEmpty(bestMatch))
-            {
-                return KrutiDevConverter.UnicodeToKruti(bestMatch);
-            }
-            return clean;
+            return true;
         }
 
-        private int Levenshtein(string s, string t)
+        private static int Levenshtein(string s, string t)
         {
             int n = s.Length;
             int m = t.Length;

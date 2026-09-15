@@ -54,3 +54,4 @@ Write-Host " SUCCESS! Kruti Dev Word Add-in is now registered!" -ForegroundColor
 Write-Host " When you open Microsoft Word, you will see the" -ForegroundColor Yellow
 Write-Host " '[शिक्षा प्रारूपक (कृति देव)]' tab on top in the Word Ribbon." -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
+
