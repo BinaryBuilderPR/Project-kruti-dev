@@ -50,9 +50,10 @@ namespace KrutiDevWordAddIn
           <button id=""btnCheckDoc"" label=""दस्तावेज़ जाँचें एवं सुधारें"" size=""large"" onAction=""OnCheckDocument"" imageMso=""Spelling"" />
           <button id=""btnSuggestPane"" label=""शब्द सुझाव साइडबार"" size=""large"" onAction=""OnToggleSuggestionPane"" imageMso=""Thesaurus"" />
         </group>
-        <group id=""grpQuickInsert"" label=""त्वरित पत्र प्रविष्टियाँ"">
-          <button id=""btnSender"" label=""प्रेषक: जिला शिक्षा अधीक्षक"" size=""large"" onAction=""OnInsertSender"" imageMso=""MailMergeInsertAddressBlock"" />
-          <button id=""btnSignature"" label=""विश्वासभाजन: जिला शिक्षा अधीक्षक"" size=""large"" onAction=""OnInsertSignature"" imageMso=""SignatureLineInsert"" />
+        <group id=""grpQuickInsert"" label=""सरकारी पत्र प्रविष्टियाँ"">
+          <button id=""btnFullLetter"" label=""सम्पूर्ण सरकारी पत्र प्रारूप"" size=""large"" onAction=""OnInsertFullLetter"" imageMso=""FileNewDefault"" />
+          <button id=""btnSender"" label=""प्रेषक: जिला शिक्षा अधीक्षक"" size=""normal"" onAction=""OnInsertSender"" imageMso=""MailMergeInsertAddressBlock"" />
+          <button id=""btnSignature"" label=""विश्वासभाजन: जिला शिक्षा अधीक्षक"" size=""normal"" onAction=""OnInsertSignature"" imageMso=""SignatureLineInsert"" />
           <button id=""btnHeader"" label=""कार्यालय शीर्ष"" size=""normal"" onAction=""OnInsertHeader"" imageMso=""HeaderFooterLinkToPrevious"" />
         </group>
         <group id=""grpConvert"" label=""फॉन्ट रूपांतरण"">
@@ -145,28 +146,24 @@ namespace KrutiDevWordAddIn
             }
         }
 
+        public void OnInsertFullLetter(IRibbonControl control)
+        {
+            InsertTextToWord(TemplatesData.FullOfficialLetter);
+        }
+
         public void OnInsertSender(IRibbonControl control)
         {
-            InsertTextToWord(
-@"प्रेषक
-    जिला शिक्षा अधीक्षक
-    सरायकेला-खरसावाँ।");
+            InsertTextToWord(TemplatesData.SenderBlock);
         }
 
         public void OnInsertSignature(IRibbonControl control)
         {
-            InsertTextToWord(
-@"विश्वासभाजन
-
-जिला शिक्षा अधीक्षक
-सरायकेला-खरसावाँ।");
+            InsertTextToWord(TemplatesData.SignatureBlock);
         }
 
         public void OnInsertHeader(IRibbonControl control)
         {
-            InsertTextToWord(
-@"कार्यालय - जिला शिक्षा अधीक्षक सरायकेला-खरसावाँ
-पत्रांक % ................. / दिनांक % .................");
+            InsertTextToWord(TemplatesData.HeaderBlock);
         }
 
         public void OnConvertToUnicode(IRibbonControl control)

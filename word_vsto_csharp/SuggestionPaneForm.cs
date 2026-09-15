@@ -12,6 +12,7 @@ namespace KrutiDevWordAddIn
         private TextBox txtSearch;
         private ListBox lstSuggestions;
         private Label lblStatus;
+        private Button btnFullLetter;
         private Button btnInsertSender;
         private Button btnInsertSignature;
         private Button btnInsertHeader;
@@ -26,8 +27,8 @@ namespace KrutiDevWordAddIn
 
         private void InitializeComponent()
         {
-            this.Text = "शिक्षा प्रारूपक - शब्द सुझाव एवं त्वरित प्रविष्टि";
-            this.Size = new Size(380, 600);
+            this.Text = "शिक्षा प्रारूपक - सरायकेला-खरसावाँ";
+            this.Size = new Size(390, 640);
             this.StartPosition = FormStartPosition.Manual;
             this.TopMost = true;
             this.Font = new Font("Segoe UI", 9.5f);
@@ -49,60 +50,65 @@ namespace KrutiDevWordAddIn
             // Quick Insertion Group
             GroupBox grpQuick = new GroupBox
             {
-                Text = " त्वरित पत्र प्रविष्टियाँ (Quick Insert) ",
+                Text = " त्वरित सरकारी पत्र प्रविष्टियाँ (1-Click) ",
                 Location = new Point(12, 65),
-                Size = new Size(340, 150),
+                Size = new Size(350, 180),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold)
             };
+
+            btnFullLetter = new Button
+            {
+                Text = "📄 सम्पूर्ण सरकारी पत्र प्रारूप (Full Letter Template)",
+                Location = new Point(10, 22),
+                Size = new Size(330, 34),
+                BackColor = Color.FromArgb(13, 110, 253),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            btnFullLetter.Click += (s, e) => InsertTextToWord(TemplatesData.FullOfficialLetter);
 
             btnInsertSender = new Button
             {
                 Text = "✉ प्रेषक: जिला शिक्षा अधीक्षक, सरायकेला-खरसावाँ",
-                Location = new Point(10, 24),
-                Size = new Size(320, 34),
+                Location = new Point(10, 60),
+                Size = new Size(330, 34),
                 BackColor = Color.FromArgb(0, 86, 179),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 Cursor = Cursors.Hand
             };
-            btnInsertSender.Click += (s, e) => InsertTextToWord(
-@"प्रेषक
-    जिला शिक्षा अधीक्षक
-    सरायकेला-खरसावाँ।");
+            btnInsertSender.Click += (s, e) => InsertTextToWord(TemplatesData.SenderBlock);
 
             btnInsertSignature = new Button
             {
-                Text = "✍ विश्वासभाजन: जिला शिक्षा अधीक्षक",
-                Location = new Point(10, 64),
-                Size = new Size(320, 34),
+                Text = "✍ विश्वासभाजन: जिला शिक्षा अधीक्षक, सरायकेला-खरसावाँ",
+                Location = new Point(10, 98),
+                Size = new Size(330, 34),
                 BackColor = Color.FromArgb(40, 167, 69),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 Cursor = Cursors.Hand
             };
-            btnInsertSignature.Click += (s, e) => InsertTextToWord(
-@"विश्वासभाजन
-
-जिला शिक्षा अधीक्षक
-सरायकेला-खरसावाँ।");
+            btnInsertSignature.Click += (s, e) => InsertTextToWord(TemplatesData.SignatureBlock);
 
             btnInsertHeader = new Button
             {
-                Text = "🏢 कार्यालय शीर्ष (Office Letter Header)",
-                Location = new Point(10, 104),
-                Size = new Size(320, 34),
+                Text = "🏢 कार्यालय शीर्ष: सरायकेला-खरसावाँ",
+                Location = new Point(10, 136),
+                Size = new Size(330, 34),
                 BackColor = Color.FromArgb(108, 117, 125),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold),
                 Cursor = Cursors.Hand
             };
-            btnInsertHeader.Click += (s, e) => InsertTextToWord(
-@"कार्यालय - जिला शिक्षा अधीक्षक, सरायकेला-खरसावाँ
-पत्रांक % ................. / दिनांक % .................");
+            btnInsertHeader.Click += (s, e) => InsertTextToWord(TemplatesData.HeaderBlock);
 
+            grpQuick.Controls.Add(btnFullLetter);
             grpQuick.Controls.Add(btnInsertSender);
             grpQuick.Controls.Add(btnInsertSignature);
             grpQuick.Controls.Add(btnInsertHeader);
@@ -112,14 +118,14 @@ namespace KrutiDevWordAddIn
             GroupBox grpSuggest = new GroupBox
             {
                 Text = " शब्द खोज एवं स्वतः पूर्ण सुझाव (IntelliSense) ",
-                Location = new Point(12, 225),
-                Size = new Size(340, 240),
+                Location = new Point(12, 255),
+                Size = new Size(350, 235),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold)
             };
 
             Label lblType = new Label
             {
-                Text = "शब्द टाइप करें (Type prefix in Hindi or Kruti):",
+                Text = "शब्द टाइप करें (Type in Hindi or Kruti):",
                 Location = new Point(10, 22),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Regular)
@@ -129,7 +135,7 @@ namespace KrutiDevWordAddIn
             txtSearch = new TextBox
             {
                 Location = new Point(10, 42),
-                Size = new Size(320, 28),
+                Size = new Size(330, 28),
                 Font = new Font("Segoe UI", 11f)
             };
             txtSearch.TextChanged += TxtSearch_TextChanged;
@@ -138,7 +144,7 @@ namespace KrutiDevWordAddIn
             lstSuggestions = new ListBox
             {
                 Location = new Point(10, 75),
-                Size = new Size(320, 150),
+                Size = new Size(330, 150),
                 Font = new Font("Segoe UI", 10.5f)
             };
             lstSuggestions.DoubleClick += LstSuggestions_DoubleClick;
@@ -149,9 +155,9 @@ namespace KrutiDevWordAddIn
             // Bottom Scan & Fix Button
             btnScanAndFix = new Button
             {
-                Text = "🔍 दस्तावेज़ में वर्तनी सुधारें (Scan & Auto-Fix Word Doc)",
-                Location = new Point(12, 475),
-                Size = new Size(340, 42),
+                Text = "🔍 दस्तावेज़ में वर्तनी सुधारें (Scan & Auto-Fix Doc)",
+                Location = new Point(12, 498),
+                Size = new Size(350, 42),
                 BackColor = Color.FromArgb(220, 53, 69),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
@@ -164,14 +170,13 @@ namespace KrutiDevWordAddIn
             lblStatus = new Label
             {
                 Text = "सुझाव को वर्ड में डालने के लिए सूची पर डबल-क्लिक करें।",
-                Location = new Point(12, 525),
-                Size = new Size(340, 30),
+                Location = new Point(12, 545),
+                Size = new Size(350, 25),
                 ForeColor = Color.FromArgb(108, 117, 125),
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Italic)
             };
             this.Controls.Add(lblStatus);
 
-            // Load initial suggestions
             UpdateSuggestions("जिला");
         }
 
@@ -197,7 +202,6 @@ namespace KrutiDevWordAddIn
             if (lstSuggestions.SelectedItem != null)
             {
                 string raw = lstSuggestions.SelectedItem.ToString();
-                // Extract unicode or kruti
                 string word = raw.Split(new string[] { "  [" }, StringSplitOptions.None)[0].Trim();
                 InsertTextToWord(word);
             }
@@ -245,7 +249,7 @@ namespace KrutiDevWordAddIn
                     fixedCount++;
                 }
 
-                MessageBox.Show("सफलतापूर्वक " + fixedCount + " अशुद्धियों (जैसे: 'जिंला' -> 'जिला', 'पृष्ट' -> 'पृष्ठ') को वर्ड में ठीक कर दिया गया!", "स्वतः सुधार पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("सफलतापूर्वक " + fixedCount + " अशुद्धियों को वर्ड में ठीक कर दिया गया!", "स्वतः सुधार पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -263,23 +267,13 @@ namespace KrutiDevWordAddIn
                 }
 
                 Word.Selection sel = wordApp.Selection;
-                // Check if text is Kruti Dev or Unicode
-                if (SpellCheckEngine.ContainsDevanagari(text))
+                if (sel.Font.Name != null && sel.Font.Name.ToLower().Contains("kruti"))
                 {
-                    // Also provide in Kruti Dev font if current selection font is Kruti Dev
-                    if (sel.Font.Name != null && sel.Font.Name.ToLower().Contains("kruti"))
-                    {
-                        sel.TypeText(KrutiDevConverter.UnicodeToKruti(text));
-                    }
-                    else
-                    {
-                        sel.TypeText(text);
-                    }
+                    sel.TypeText(KrutiDevConverter.UnicodeToKruti(text) + "\n");
                 }
                 else
                 {
-                    sel.Font.Name = "Kruti Dev 010";
-                    sel.TypeText(text);
+                    sel.TypeText(text + "\n");
                 }
             }
             catch (Exception ex)
@@ -289,4 +283,3 @@ namespace KrutiDevWordAddIn
         }
     }
 }
-
