@@ -67,13 +67,13 @@ namespace KrutiDevWordAddIn
                 Cursor = Cursors.Hand
             };
             btnInsertSender.Click += (s, e) => InsertTextToWord(
-@"प्रेषक,
-    जिला शिक्षा अधीक्षक,
+@"प्रेषक
+    जिला शिक्षा अधीक्षक
     सरायकेला-खरसावाँ।");
 
             btnInsertSignature = new Button
             {
-                Text = "✍ विश्वासभाजन: जिला शिक्षा अधीक्षक, सरायकेला-खरसावाँ",
+                Text = "✍ विश्वासभाजन: जिला शिक्षा अधीक्षक",
                 Location = new Point(10, 64),
                 Size = new Size(320, 34),
                 BackColor = Color.FromArgb(40, 167, 69),
@@ -83,9 +83,9 @@ namespace KrutiDevWordAddIn
                 Cursor = Cursors.Hand
             };
             btnInsertSignature.Click += (s, e) => InsertTextToWord(
-@"विश्वासभाजन,
+@"विश्वासभाजन
 
-जिला शिक्षा अधीक्षक,
+जिला शिक्षा अधीक्षक
 सरायकेला-खरसावाँ।");
 
             btnInsertHeader = new Button
@@ -289,3 +289,4 @@ namespace KrutiDevWordAddIn
         }
     }
 }
+

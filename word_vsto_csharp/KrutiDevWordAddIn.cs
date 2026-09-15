@@ -148,24 +148,24 @@ namespace KrutiDevWordAddIn
         public void OnInsertSender(IRibbonControl control)
         {
             InsertTextToWord(
-@"प्रेषक,
-    जिला शिक्षा अधीक्षक,
+@"प्रेषक
+    जिला शिक्षा अधीक्षक
     सरायकेला-खरसावाँ।");
         }
 
         public void OnInsertSignature(IRibbonControl control)
         {
             InsertTextToWord(
-@"विश्वासभाजन,
+@"विश्वासभाजन
 
-जिला शिक्षा अधीक्षक,
+जिला शिक्षा अधीक्षक
 सरायकेला-खरसावाँ।");
         }
 
         public void OnInsertHeader(IRibbonControl control)
         {
             InsertTextToWord(
-@"कार्यालय - जिला शिक्षा अधीक्षक, सरायकेला-खरसावाँ
+@"कार्यालय - जिला शिक्षा अधीक्षक सरायकेला-खरसावाँ
 पत्रांक % ................. / दिनांक % .................");
         }
 
