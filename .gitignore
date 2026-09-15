@@ -1,0 +1,15 @@
+# Python & IDE
+__pycache__/
+*.py[cod]
+*$py.class
+*.tmp
+*.temp
+.vscode/
+.idea/
+
+# Large 2GB raw data folder
+2024 data/
+
+# Binaries / build outputs
+*.obj
+*.pdb
