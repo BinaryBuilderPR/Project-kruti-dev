@@ -27,7 +27,7 @@ namespace KrutiDevWordAddIn
 
         private void InitializeComponent()
         {
-            this.Text = "शिक्षा प्रारूपक - सरायकेला-खरसावाँ";
+            this.Text = "Kruti Dev Assistant - Saraikela Kharsawan";
             this.Size = new Size(390, 640);
             this.StartPosition = FormStartPosition.Manual;
             this.TopMost = true;
@@ -38,7 +38,7 @@ namespace KrutiDevWordAddIn
             Panel topPanel = new Panel { Dock = DockStyle.Top, Height = 55, BackColor = Color.FromArgb(27, 77, 62) };
             Label lblTitle = new Label
             {
-                Text = "स्कूली शिक्षा एवं साक्षरता विभाग\n(सरायकेला-खरसावाँ प्रारूपक सहायक)",
+                Text = "School Education & Literacy Dept\n(Saraikela-Kharsawan Drafting Assistant)",
                 ForeColor = Color.White,
                 Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
                 Location = new Point(12, 8),
@@ -50,7 +50,7 @@ namespace KrutiDevWordAddIn
             // Quick Insertion Group
             GroupBox grpQuick = new GroupBox
             {
-                Text = " त्वरित सरकारी पत्र प्रविष्टियाँ (1-Click) ",
+                Text = " Official Letter Quick Inserts (1-Click) ",
                 Location = new Point(12, 65),
                 Size = new Size(350, 180),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold)
@@ -58,7 +58,7 @@ namespace KrutiDevWordAddIn
 
             btnFullLetter = new Button
             {
-                Text = "📄 सम्पूर्ण सरकारी पत्र प्रारूप (Full Letter Template)",
+                Text = "📄 Full Official Letter Template",
                 Location = new Point(10, 22),
                 Size = new Size(330, 34),
                 BackColor = Color.FromArgb(13, 110, 253),
@@ -71,7 +71,7 @@ namespace KrutiDevWordAddIn
 
             btnInsertSender = new Button
             {
-                Text = "✉ प्रेषक: जिला शिक्षा अधीक्षक, सरायकेला-खरसावाँ",
+                Text = "✉ Sender: DSE Saraikela-Kharsawan",
                 Location = new Point(10, 60),
                 Size = new Size(330, 34),
                 BackColor = Color.FromArgb(0, 86, 179),
@@ -84,7 +84,7 @@ namespace KrutiDevWordAddIn
 
             btnInsertSignature = new Button
             {
-                Text = "✍ विश्वासभाजन: जिला शिक्षा अधीक्षक, सरायकेला-खरसावाँ",
+                Text = "✍ Signature: DSE Saraikela-Kharsawan",
                 Location = new Point(10, 98),
                 Size = new Size(330, 34),
                 BackColor = Color.FromArgb(40, 167, 69),
@@ -97,7 +97,7 @@ namespace KrutiDevWordAddIn
 
             btnInsertHeader = new Button
             {
-                Text = "🏢 कार्यालय शीर्ष: सरायकेला-खरसावाँ",
+                Text = "🏢 Office Letterhead",
                 Location = new Point(10, 136),
                 Size = new Size(330, 34),
                 BackColor = Color.FromArgb(108, 117, 125),

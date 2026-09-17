@@ -20,10 +20,6 @@ namespace KrutiDevWordAddIn
         private GlobalInputHook inlineHook = null;
         private SuggestionPaneForm suggestionPane = null;
 
-        // Distinct Highlight Color: Amber Orange / Cyan / Violet (distinct from default red)
-        private Word.WdColor HighlightWavyColor = Word.WdColor.wdColorOrange;
-        private Word.WdColorIndex HighlightBgColor = Word.WdColorIndex.wdYellow;
-
         public void OnConnection(object Application, ext_ConnectMode ConnectMode, object AddInInst, ref Array custom)
         {
             wordApp = (Word.Application)Application;
@@ -58,29 +54,29 @@ namespace KrutiDevWordAddIn
         public void OnStartupComplete(ref Array custom) { }
         public void OnBeginShutdown(ref Array custom) { }
 
-        // IRibbonExtensibility Implementation
+        // IRibbonExtensibility Implementation (Clean Professional English Toolbar)
         public string GetCustomUI(string RibbonID)
         {
             return @"<customUI xmlns=""http://schemas.microsoft.com/office/2009/07/customui"">
   <ribbon>
     <tabs>
-      <tab id=""tabKrutiDev"" label=""शिक्षा प्रारूपक (सरायकेला-खरसावाँ)"">
-        <group id=""grpSpell"" label=""वर्तनी एवं विशिष्ट हाइलाइट"">
-          <button id=""btnHighlightErrors"" label=""त्रुटियाँ विशिष्ट रंग में हाइलाइट करें"" size=""large"" onAction=""OnHighlightErrors"" imageMso=""HighlightColorPicker"" />
-          <button id=""btnAutoFix"" label=""स्वतः सुधार (Auto-Fix All)"" size=""large"" onAction=""OnAutoFixAll"" imageMso=""AutoCorrect"" />
-          <button id=""btnHideWordSquiggles"" label=""वर्ड की लाल लाइनें छुपाएं"" size=""normal"" onAction=""OnHideEnglishSquiggles"" imageMso=""ReviewShowBalloons"" />
-          <button id=""btnToggleInline"" label=""इनलाइन पॉपअप (On/Off)"" size=""normal"" onAction=""OnToggleInlineSuggestions"" imageMso=""GroupFont"" />
+      <tab id=""tabKrutiDev"" label=""Kruti Dev Assistant"">
+        <group id=""grpSpell"" label=""Proofing &amp; Auto-Fix"">
+          <button id=""btnHighlightErrors"" label=""Highlight Errors"" size=""large"" onAction=""OnHighlightErrors"" imageMso=""HighlightColorPicker"" />
+          <button id=""btnAutoFix"" label=""Auto-Fix All"" size=""large"" onAction=""OnAutoFixAll"" imageMso=""AutoCorrect"" />
+          <button id=""btnHideWordSquiggles"" label=""Hide Red Lines"" size=""normal"" onAction=""OnHideEnglishSquiggles"" imageMso=""ReviewShowBalloons"" />
+          <button id=""btnToggleInline"" label=""Inline Popup (On/Off)"" size=""normal"" onAction=""OnToggleInlineSuggestions"" imageMso=""GroupFont"" />
         </group>
-        <group id=""grpQuickInsert"" label=""सरकारी पत्र प्रविष्टियाँ"">
-          <button id=""btnFullLetter"" label=""सम्पूर्ण सरकारी पत्र प्रारूप"" size=""large"" onAction=""OnInsertFullLetter"" imageMso=""FileNewDefault"" />
-          <button id=""btnSender"" label=""प्रेषक: जिला शिक्षा अधीक्षक"" size=""normal"" onAction=""OnInsertSender"" imageMso=""MailMergeInsertAddressBlock"" />
-          <button id=""btnSignature"" label=""विश्वासभाजन: जिला शिक्षा अधीक्षक"" size=""normal"" onAction=""OnInsertSignature"" imageMso=""SignatureLineInsert"" />
-          <button id=""btnHeader"" label=""कार्यालय शीर्ष"" size=""normal"" onAction=""OnInsertHeader"" imageMso=""HeaderFooterLinkToPrevious"" />
-          <button id=""btnSuggestPane"" label=""सहायक साइडबार"" size=""normal"" onAction=""OnToggleSuggestionPane"" imageMso=""Thesaurus"" />
+        <group id=""grpQuickInsert"" label=""Official Letter Blocks"">
+          <button id=""btnFullLetter"" label=""Full Letter Template"" size=""large"" onAction=""OnInsertFullLetter"" imageMso=""FileNewDefault"" />
+          <button id=""btnSender"" label=""Sender: DSE Saraikela"" size=""normal"" onAction=""OnInsertSender"" imageMso=""MailMergeInsertAddressBlock"" />
+          <button id=""btnSignature"" label=""Signature: DSE Saraikela"" size=""normal"" onAction=""OnInsertSignature"" imageMso=""SignatureLineInsert"" />
+          <button id=""btnHeader"" label=""Office Letterhead"" size=""normal"" onAction=""OnInsertHeader"" imageMso=""HeaderFooterLinkToPrevious"" />
+          <button id=""btnSuggestPane"" label=""Suggestions Sidebar"" size=""normal"" onAction=""OnToggleSuggestionPane"" imageMso=""Thesaurus"" />
         </group>
-        <group id=""grpConvert"" label=""फॉन्ट रूपांतरण"">
-          <button id=""btnToUnicode"" label=""यूनिकोड में बदलें"" size=""normal"" onAction=""OnConvertToUnicode"" imageMso=""GroupConvert"" />
-          <button id=""btnToKruti"" label=""कृति देव में बदलें"" size=""normal"" onAction=""OnConvertToKruti"" imageMso=""FontColorPicker"" />
+        <group id=""grpConvert"" label=""Font Conversion"">
+          <button id=""btnToUnicode"" label=""To Unicode Hindi"" size=""normal"" onAction=""OnConvertToUnicode"" imageMso=""GroupConvert"" />
+          <button id=""btnToKruti"" label=""To Kruti Dev 010"" size=""normal"" onAction=""OnConvertToKruti"" imageMso=""FontColorPicker"" />
         </group>
       </tab>
     </tabs>
@@ -96,33 +92,31 @@ namespace KrutiDevWordAddIn
                 if (wordApp.Documents.Count == 0) return;
                 Word.Document doc = wordApp.ActiveDocument;
                 
-                // Disable Word's English spellchecker noise on this Hindi doc
                 doc.ShowSpellingErrors = false;
                 doc.ShowGrammaticalErrors = false;
                 doc.Content.NoProofing = 1;
 
-                MessageBox.Show("एमएस वर्ड की अनचाही अंग्रेजी लाल लाइनें छुपा दी गई हैं!\n\nअब केवल हमारे प्रारूपक द्वारा जाँचे गए वास्तविक गलत शब्द ही अलग रंग में दिखेंगे।", "दस्तावेज़ स्वच्छ", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Word's default English red squiggly lines have been hidden.\n\nNow only actual Hindi/Kruti Dev errors will be highlighted.", "Document Cleaned", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("त्रुटि: " + ex.Message);
+                MessageBox.Show("Error: " + ex.Message);
             }
         }
 
-        // 2. Highlight only real Hindi/Kruti Dev errors with DISTINCT high-contrast Orange Wavy + Yellow Marker
+        // 2. Highlight only real Hindi/Kruti Dev errors with DISTINCT Turquoise / Orange Marker
         public void OnHighlightErrors(IRibbonControl control)
         {
             try
             {
                 if (wordApp.Documents.Count == 0)
                 {
-                    MessageBox.Show("कृपया पहले एमएस वर्ड में कोई दस्तावेज़ खोलें।", "वर्ड कनेक्ट");
+                    MessageBox.Show("Please open a document in Microsoft Word first.", "Word Connect");
                     return;
                 }
 
                 Word.Document doc = wordApp.ActiveDocument;
                 
-                // First turn off Word's noisy English squiggles
                 doc.ShowSpellingErrors = false;
                 doc.Content.NoProofing = 1;
 
@@ -131,11 +125,11 @@ namespace KrutiDevWordAddIn
 
                 if (issues.Count == 0)
                 {
-                    MessageBox.Show("दस्तावेज़ में कोई वर्तनी या व्याकरण त्रुटि नहीं मिली! सभी शब्द सही हैं।", "जाँच पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("No spelling or grammar errors found! All words are correct.", "Check Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
-                // Clear previous custom highlights
+                // Clear previous highlights
                 doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
                 doc.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
 
@@ -151,7 +145,6 @@ namespace KrutiDevWordAddIn
 
                     while (findObj.Execute())
                     {
-                        // Use DISTINCT Cyan/Orange Wavy underline + Soft Yellow background marker
                         range.Underline = Word.WdUnderline.wdUnderlineWavy;
                         range.Font.UnderlineColor = Word.WdColor.wdColorOrange;
                         range.HighlightColorIndex = Word.WdColorIndex.wdTurquoise;
@@ -159,11 +152,11 @@ namespace KrutiDevWordAddIn
                     }
                 }
 
-                MessageBox.Show("कुल " + issues.Count + " वास्तविक त्रुटियों को विशिष्ट फ़िरोज़ी (Turquoise) / नारंगी (Orange) रंग में स्पष्ट रूप से चिह्नित कर दिया गया है!\n\n(यह वर्ड के डिफ़ॉल्ट लाल रंग से अलग और स्पष्ट दिखता है)\n\nसुधारने के लिए 'स्वतः सुधार (Auto-Fix All)' बटन दबाएं।", "विशिष्ट रंग में रेखांकित", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Highlighted " + issues.Count + " actual errors in Turquoise / Orange.\n\nClick 'Auto-Fix All' to automatically fix them in your document.", "Errors Highlighted", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("त्रुटि: " + ex.Message);
+                MessageBox.Show("Error: " + ex.Message);
             }
         }
 
@@ -179,7 +172,7 @@ namespace KrutiDevWordAddIn
                 var issues = spellEngine.CheckDocumentSpellingAndGrammar(docText);
                 if (issues.Count == 0)
                 {
-                    MessageBox.Show("कोई त्रुटि नहीं मिली।", "स्वतः सुधार");
+                    MessageBox.Show("No errors found to fix.", "Auto-Fix All");
                     return;
                 }
 
@@ -207,15 +200,14 @@ namespace KrutiDevWordAddIn
                     fixedCount++;
                 }
 
-                // Clear all underlines and highlights
                 doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
                 doc.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
 
-                MessageBox.Show("सफलतापूर्वक " + fixedCount + " त्रुटियों को ठीक कर दिया गया!", "स्वतः सुधार पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Successfully auto-fixed " + fixedCount + " errors in Word!", "Auto-Fix Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("त्रुटि: " + ex.Message);
+                MessageBox.Show("Error: " + ex.Message);
             }
         }
 
@@ -224,8 +216,8 @@ namespace KrutiDevWordAddIn
             if (inlineHook != null)
             {
                 inlineHook.IsEnabled = !inlineHook.IsEnabled;
-                string status = inlineHook.IsEnabled ? "चालू (ON)" : "बंद (OFF)";
-                MessageBox.Show("इनलाइन सुझाव पॉपअप अब " + status + " है।", "इनलाइन स्थिति");
+                string status = inlineHook.IsEnabled ? "ON" : "OFF";
+                MessageBox.Show("Inline floating suggestion popup is now " + status + ".", "Inline Suggestions");
             }
         }
 
@@ -242,7 +234,7 @@ namespace KrutiDevWordAddIn
             }
             catch (Exception ex)
             {
-                MessageBox.Show("त्रुटि: " + ex.Message);
+                MessageBox.Show("Error: " + ex.Message);
             }
         }
 
@@ -288,11 +280,11 @@ namespace KrutiDevWordAddIn
 
                 string unicodeText = KrutiDevConverter.KrutiToUnicode(selText);
                 Clipboard.SetText(unicodeText);
-                MessageBox.Show("चयनित कृति देव टेक्स्ट को यूनिकोड हिन्दी में परिवर्तित कर क्लिपबोर्ड में कॉपी कर दिया गया है!", "यूनिकोड रूपांतरण सफल");
+                MessageBox.Show("Converted Kruti Dev text to Unicode Hindi and copied to Clipboard!", "Conversion Complete");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("त्रुटि: " + ex.Message);
+                MessageBox.Show("Error: " + ex.Message);
             }
         }
 
@@ -310,7 +302,7 @@ namespace KrutiDevWordAddIn
             }
             catch (Exception ex)
             {
-                MessageBox.Show("त्रुटि: " + ex.Message);
+                MessageBox.Show("Error: " + ex.Message);
             }
         }
 
@@ -334,7 +326,7 @@ namespace KrutiDevWordAddIn
             }
             catch (Exception ex)
             {
-                MessageBox.Show("त्रुटि: " + ex.Message);
+                MessageBox.Show("Error: " + ex.Message);
             }
         }
     }
