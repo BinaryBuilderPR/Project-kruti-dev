@@ -1,7 +1,9 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace KrutiDevWordAddIn
 {
@@ -19,16 +21,22 @@ namespace KrutiDevWordAddIn
     {
         public HashSet<string> UnicodeDictionary = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public HashSet<string> KrutiDictionary = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        
-        // Common official Hindi spelling error corrections (both Unicode and Kruti)
-        private static readonly Dictionary<string, string> CommonTypoCorrections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+
+        // Precise dictionary of known official drafting typos -> corrections
+        private static readonly Dictionary<string, string> KnownTypoCorrections = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            // Frequent typos in Jharkhand office drafting
+            // Drafting typos from Jharkhand education office documents
+            {"कायोर्लय", "कार्यालय"}, {"कार्यलय", "कार्यालय"}, {"कार्यालयी", "कार्यालयीय"},
+            {"नियमैत", "नियमित"}, {"नियमीत", "नियमित"},
+            {"ममले", "मामले"}, {"मामला", "मामले"},
+            {"लांटती", "लौटती"}, {"लोटती", "लौटती"},
+            {"उपराक्त", "उपरोक्त"}, {"उपरोक्तक", "उपरोक्त"},
+            {"डयता", "देयता"}, {"दयता", "देयता"},
+            {"सासरता", "साक्षरता"}, {"साक्षारता", "साक्षरता"},
             {"जिंला", "जिला"}, {"जिल्ला", "जिला"}, {"जिलें", "जिले"},
             {"पृष्ट", "पृष्ठ"}, {"पृष्ट संख्या", "पृष्ठ संख्या"},
             {"सञ्चिका", "संचिका"}, {"संन्चिका", "संचिका"},
-            {"कार्यलय", "कार्यालय"}, {"कार्यालयी", "कार्यालयीय"},
-            {"कारवाई", "कार्रवाई"}, {"कार्यवाही", "कार्रवाई"},
+            {"कारवाई", "कार्रवाई"},
             {"अदिशक", "अधीक्षक"}, {"अधिक्षक", "अधीक्षक"}, {"अधीछक", "अधीक्षक"},
             {"सरायकेल्ला", "सरायकेला"}, {"सराइकेला", "सरायकेला"}, {"खरसावां", "खरसावाँ"}, {"खरसवां", "खरसावाँ"},
             {"पदाधिकारीगणों", "पदाधिकारियों"}, {"पदाधिकारीयों", "पदाधिकारियों"},
@@ -36,53 +44,84 @@ namespace KrutiDevWordAddIn
             {"शिक्षीका", "शिक्षिका"}, {"शिक्षको", "शिक्षकों"},
             {"विदयालय", "विद्यालय"}, {"विध्यालय", "विद्यालय"},
             {"प्रतिवेदनं", "प्रतिवेदन"}, {"अनुपालना", "अनुपालन"},
-            {"शोकॉज", "स्पष्टीकरण"}, {"शोकौज", "स्पष्टीकरण"},
-            {"विश्वासभाजन", "विश्वासभाजन"}, {"भवदिय", "भवदीय"},
-            {"हस्ताक्शर", "हस्ताक्षर"}, {"हस्ताकक्षर", "हस्ताक्षर"},
+            {"शोकौज", "स्पष्टीकरण"},
+            {"भवदिय", "भवदीय"}, {"हस्ताक्शर", "हस्ताक्षर"}, {"हस्ताकक्षर", "हस्ताक्षर"},
             {"उपस्थीती", "उपस्थिति"}, {"उपस्थिती", "उपस्थिति"},
             {"स्वीकृती", "स्वीकृति"}, {"अस्वीकृती", "अस्वीकृति"},
             {"निलंबण", "निलंबन"}, {"वेतनमानं", "वेतनमान"},
-            {"अधोहस्ताक्षरी", "अधोहस्ताक्षरी"}, {"अधोहस्ताछरी", "अधोहस्ताक्षरी"}
+            {"अधोहस्ताछरी", "अधोहस्ताक्षरी"}, {"अनुलग्न", "संलग्नक"},
+            {"अनुशंसा", "अनुशंसा"}, {"अनुकुल", "अनुकूल"}
         };
 
         public SpellCheckEngine()
         {
-            LoadEmbeddedDictionary();
+            LoadComprehensiveDictionary();
         }
 
-        private void LoadEmbeddedDictionary()
+        private void LoadComprehensiveDictionary()
         {
-            string[] baseWords = new string[] {
-                "कार्यालय", "कार्यालय-आदेश", "शिक्षा", "विभाग", "झारखण्ड", "राँची", "सरायकेला", "खरसावाँ",
-                "प्राथमिक", "माध्यमिक", "उच्च", "न्यायालय", "पदाधिकारी", "अधीक्षक", "निदेशक", "आदेश",
-                "ज्ञापांक", "पत्रांक", "दिनांक", "प्रतिवेदन", "अनुपालन", "संचिका", "भवदीय", "हस्ताक्षर",
-                "विषय", "प्रसंग", "महोदय", "अनुरोध", "आवश्यक", "कार्रवाई", "कार्यवाही", "उपरोक्त", "संलग्न",
-                "वेतन", "शिक्षक", "शिक्षिका", "विद्यालय", "प्रधानाध्यापक", "प्रभारी", "छात्र", "छात्रा",
-                "उपस्थिति", "अवकाश", "स्वीकृत", "अस्वीकृत", "स्पष्टीकरण", "शोकॉज", "जाँच", "निलंबन",
-                "वेतनमान", "में", "मैं", "की", "कि", "के", "को", "से", "पर", "का", "है", "हैं", "था",
-                "थी", "थे", "होगा", "होगी", "होंगे", "किया", "किये", "गया", "गए", "गई", "जाता", "जाती",
-                "जाते", "द्वारा", "तथा", "एवं", "अथवा", "यदि", "तो", "इस", "उस", "सभी", "प्राप्त",
-                "प्रस्तुत", "निर्देश", "निर्देशित", "समीक्षा", "बैठक", "निर्णय", "प्रस्ताव", "अनुमोदन",
-                "टिप्पणी", "पंजी", "अवर", "प्रखंड", "क्षेत्रीय", "संयुक्त", "इचागढ़", "कुकडू", "चांडिल",
-                "राजनगर", "गम्हरिया", "खूँटी", "जमशेदपुर", "चाईबासा", "धनबाद", "बोकारो", "हजारीबाग",
-                "जिला", "पृष्ठ", "अधीक्षक", "विश्वासभाजन", "प्रेषक", "अधोहस्ताक्षरी"
+            // 1. Try to load 71,000+ words from lexicon_words.txt or lexicon.json
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string txtPath = Path.Combine(baseDir, "lexicon_words.txt");
+            if (!File.Exists(txtPath))
+            {
+                txtPath = @"d:\Lab\Project kruti dev\word_vsto_csharp\lexicon_words.txt";
+            }
+
+            if (File.Exists(txtPath))
+            {
+                try
+                {
+                    string[] lines = File.ReadAllLines(txtPath, Encoding.UTF8);
+                    foreach (var line in lines)
+                    {
+                        string w = line.Trim();
+                        if (w.Length > 0)
+                        {
+                            UnicodeDictionary.Add(w);
+                        }
+                    }
+                }
+                catch { }
+            }
+
+            // 2. Add base official vocabulary & Jharkhand court terms
+            string[] coreWords = new string[] {
+                "चूँकि", "पूर्व", "बनाम", "राज्य", "सरकार", "निदेशालयीय", "स्तर", "सकारण", "आदेश",
+                "पारित", "वादी", "खारिज", "अतएव", "दिनांक", "अन्तरिम", "अंतरिम", "निदेशालय", "अग्रतर",
+                "कार्रवाई", "कार्यवाही", "उचित", "प्रतीत", "होता", "कार्यालय", "पत्रांक", "ज्ञापांक",
+                "अन्य", "मामले", "मांग", "छायाप्रति", "संलग्न", "संयुक्त", "सचिव", "प्राथमिक", "शिक्षा",
+                "स्कूली", "साक्षरता", "विभाग", "झारखण्ड", "राँची", "विधि", "आलोक", "दावे", "संबंध", "सम्बन्ध",
+                "स्थापना", "समिति", "नियमानुकूल", "निर्णय", "जाए", "यदि", "दावा", "हो", "तो", "न्यायादेश",
+                "विरुद्ध", "दायरा", "दायर", "प्राप्त", "हुआ", "उपर्युक्त", "अंकित", "करना", "याचिका",
+                "कार्यकारी", "अंश", "निम्नवत्", "ज्ञातव्य", "अधीक्षक", "सरायकेला", "खरसावाँ", "विश्वासभाजन",
+                "भवदीय", "प्रतिवेदन", "अनुपालन", "संचिका", "टिप्पणी", "अधोहस्ताक्षरी", "स्पष्टीकरण", "शोकॉज",
+                "अथवा", "मार्गदर्शन", "प्रस्ताव", "अनुमोदन", "अनुलग्नक", "यथोक्त", "निकासी", "व्ययन",
+                "में", "मैं", "की", "कि", "के", "को", "से", "पर", "का", "है", "हैं", "था", "थी", "थे",
+                "होगा", "होगी", "होंगे", "किया", "किये", "गया", "गए", "गई", "जाता", "जाती", "जाते",
+                "द्वारा", "तथा", "एवं", "अथवा", "इस", "उस", "इनके", "उनके", "सभी", "प्रस्तुत", "निर्देश",
+                "समीक्षा", "बैठक", "अवर", "प्रखंड", "क्षेत्रीय", "इचागढ़", "कुकडू", "चांडिल", "राजनगर",
+                "गम्हरिया", "खूँटी", "जमशेदपुर", "चाईबासा", "धनबाद", "बोकारो", "हजारीबाग", "जिला", "पृष्ठ",
+                "देयता", "वेतन", "शिक्षक", "शिक्षिका", "विद्यालय", "प्रधानाध्यापक", "प्रभारी", "छात्र",
+                "छात्रा", "उपस्थिति", "अवकाश", "स्वीकृत", "अस्वीकृत", "निलंबन", "वेतनमान", "प्रोन्नति",
+                "पेंशन", "ग्रेच्युटी", "अधिसूचना", "नियमावली", "सहमति", "अनापत्ति", "शपथपत्र", "तथ्य",
+                "विवरण", "प्रतिवादी", "याचिकाकर्ता", "रोक", "निस्तारण", "अवहेलना", "प्रपत्र", "प्रत्यावेदन",
+                "अवलोकन", "विचारणीय", "यथोचित", "सादर", "कनीय", "लिपिक", "प्रधान", "अवगत", "विदित",
+                "विलंब", "समय", "तिथि", "दिवस", "वर्ष", "माह", "सप्ताह", "दैनिक", "मासिक", "वार्षिक",
+                "विद्यार्थी", "नामांकन", "छात्रवृत्ति", "भोजन", "पाठ्यपुस्तक", "परीक्षा", "मूल्यांकन",
+                "परिणाम", "उत्तीर्ण", "अनुत्तीर्ण", "अंक", "प्रमाण-पत्र", "अभिलेख", "पंजी", "रजिस्टर",
+                "रोकड़", "लेखा", "व्यय", "आय", "आवंटन", "कोषागार", "स्वीकृति", "भुगतान", "विहित",
+                "नियम", "शर्त", "पात्रता", "योग्यता", "अनुभव", "प्रशिक्षण", "प्रशिक्षित", "अप्रशिक्षित",
+                "मानदेय", "भत्ता", "महंगाई", "यात्रा", "आकस्मिक", "प्रतिपूरक", "प्रकाशन", "समाचार",
+                "विज्ञप्ति", "निविदा", "कोटेशन", "आपूर्तिकर्ता", "अनुसार", "अनुमति", "लेने", "प्रत्युत्तर",
+                "नहीं", "हुई", "ग्रेड", "हेतु", "प्राप्ति", "समर्पित"
             };
 
-            foreach (var w in baseWords)
+            foreach (var w in coreWords)
             {
-                AddWord(w);
-            }
-        }
-
-        public void AddWord(string unicodeWord)
-        {
-            if (string.IsNullOrEmpty(unicodeWord)) return;
-            string krutiWord = KrutiDevConverter.UnicodeToKruti(unicodeWord);
-            
-            UnicodeDictionary.Add(unicodeWord);
-            if (!string.IsNullOrEmpty(krutiWord))
-            {
-                KrutiDictionary.Add(krutiWord);
+                UnicodeDictionary.Add(w);
+                string k = KrutiDevConverter.UnicodeToKruti(w);
+                if (!string.IsNullOrEmpty(k)) KrutiDictionary.Add(k);
             }
         }
 
@@ -91,66 +130,73 @@ namespace KrutiDevWordAddIn
             List<SpellingIssue> issues = new List<SpellingIssue>();
             if (string.IsNullOrEmpty(docText)) return issues;
 
-            // Detect if doc text is mostly Unicode or Kruti Dev
-            bool isUnicode = ContainsDevanagari(docText);
+            // 1. Check Contextual Grammar Traps first (Phrases like 'संबंध मे' -> 'संबंध में', 'की गई था' -> 'की गई थी')
+            CheckContextualGrammarRules(docText, issues);
 
-            string[] tokens = docText.Split(new char[] { ' ', '\t', '\r', '\n', '।', ',', '.', ':', ';', '(', ')', '[', ']', '{', '}', '"', '\'' }, StringSplitOptions.RemoveEmptyEntries);
-
+            // 2. Tokenize and Check Words
+            string[] rawTokens = docText.Split(new char[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             HashSet<string> seenWords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            for (int i = 0; i < tokens.Length; i++)
+            foreach (var raw in rawTokens)
             {
-                string word = tokens[i].Trim();
-                if (string.IsNullOrEmpty(word) || word.Length <= 1 || IsNumeric(word) || seenWords.Contains(word))
+                // Clean punctuation, brackets, quotes, numbers
+                string word = CleanWord(raw);
+                if (string.IsNullOrEmpty(word) || word.Length <= 1 || seenWords.Contains(word))
+                    continue;
+
+                // SKIP English words, abbreviations (WPS, No, S/o, etc.) and pure numbers
+                if (IsEnglishOrAlphaNumeric(word) || IsNumeric(word))
                     continue;
 
                 seenWords.Add(word);
 
-                // 1. Check known common typos dictionary
-                if (isUnicode)
+                bool isUnicode = ContainsDevanagari(word);
+                string uniWord = isUnicode ? word : KrutiDevConverter.KrutiToUnicode(word);
+
+                // Check 1: Known Typos Dictionary (High Accuracy)
+                if (KnownTypoCorrections.ContainsKey(uniWord))
                 {
-                    if (CommonTypoCorrections.ContainsKey(word))
+                    string correctedUni = KnownTypoCorrections[uniWord];
+                    string correctedKruti = KrutiDevConverter.UnicodeToKruti(correctedUni);
+
+                    issues.Add(new SpellingIssue
                     {
-                        string corrected = CommonTypoCorrections[word];
-                        issues.Add(new SpellingIssue
-                        {
-                            OriginalWord = word,
-                            SuggestedWord = corrected,
-                            OriginalWordKruti = KrutiDevConverter.UnicodeToKruti(word),
-                            SuggestedWordKruti = KrutiDevConverter.UnicodeToKruti(corrected),
-                            Message = "अशुद्ध वर्तनी: '" + word + "' के स्थान पर '" + corrected + "' का प्रयोग करें।",
-                            IsUnicode = true
-                        });
-                        continue;
-                    }
-                }
-                else
-                {
-                    // Kruti Dev text
-                    string uniWord = KrutiDevConverter.KrutiToUnicode(word);
-                    if (CommonTypoCorrections.ContainsKey(uniWord))
-                    {
-                        string correctedUni = CommonTypoCorrections[uniWord];
-                        string correctedKruti = KrutiDevConverter.UnicodeToKruti(correctedUni);
-                        issues.Add(new SpellingIssue
-                        {
-                            OriginalWord = word,
-                            SuggestedWord = correctedKruti,
-                            OriginalWordKruti = word,
-                            SuggestedWordKruti = correctedKruti,
-                            Message = "अशुद्ध वर्तनी (कृति देव): '" + uniWord + "' (" + word + ") -> '" + correctedUni + "' (" + correctedKruti + ")",
-                            IsUnicode = false
-                        });
-                        continue;
-                    }
+                        OriginalWord = word,
+                        SuggestedWord = isUnicode ? correctedUni : correctedKruti,
+                        OriginalWordKruti = isUnicode ? KrutiDevConverter.UnicodeToKruti(word) : word,
+                        SuggestedWordKruti = correctedKruti,
+                        Message = "अशुद्ध शब्द: '" + uniWord + "' -> सही शब्द: '" + correctedUni + "'",
+                        IsUnicode = isUnicode
+                    });
+                    continue;
                 }
 
-                // 2. Fuzzy match against standard dictionary
-                string targetUni = isUnicode ? word : KrutiDevConverter.KrutiToUnicode(word);
-                if (!UnicodeDictionary.Contains(targetUni))
+                // Check 2: If word is already a valid dictionary word, DO NOT FLAG IT!
+                if (UnicodeDictionary.Contains(uniWord))
                 {
-                    string bestMatch = GetBestFuzzyMatch(targetUni);
-                    if (!string.IsNullOrEmpty(bestMatch) && bestMatch != targetUni)
+                    continue;
+                }
+
+                // Check 3: Missing Anusvara (e.g. 'मे' -> 'में')
+                if (uniWord == "मे")
+                {
+                    issues.Add(new SpellingIssue
+                    {
+                        OriginalWord = word,
+                        SuggestedWord = isUnicode ? "में" : "esa",
+                        OriginalWordKruti = isUnicode ? "esa" : word,
+                        SuggestedWordKruti = "esa",
+                        Message = "बिंदी (अनुस्वार) छूटी: 'मे' के स्थान पर 'में' (esa) का प्रयोग करें।",
+                        IsUnicode = isUnicode
+                    });
+                    continue;
+                }
+
+                // Check 4: Fuzzy Match (Only if edit distance is 1 for words length >= 4)
+                if (uniWord.Length >= 4)
+                {
+                    string bestMatch = GetStrictFuzzyMatch(uniWord);
+                    if (!string.IsNullOrEmpty(bestMatch))
                     {
                         issues.Add(new SpellingIssue
                         {
@@ -158,7 +204,7 @@ namespace KrutiDevWordAddIn
                             SuggestedWord = isUnicode ? bestMatch : KrutiDevConverter.UnicodeToKruti(bestMatch),
                             OriginalWordKruti = isUnicode ? KrutiDevConverter.UnicodeToKruti(word) : word,
                             SuggestedWordKruti = KrutiDevConverter.UnicodeToKruti(bestMatch),
-                            Message = "सुझाव: '" + targetUni + "' के लिए सही शब्द '" + bestMatch + "' हो सकता है।",
+                            Message = "वर्तनी सुधार: '" + uniWord + "' -> '" + bestMatch + "'",
                             IsUnicode = isUnicode
                         });
                     }
@@ -168,24 +214,108 @@ namespace KrutiDevWordAddIn
             return issues;
         }
 
-        private string GetBestFuzzyMatch(string uniWord)
+        private void CheckContextualGrammarRules(string docText, List<SpellingIssue> issues)
+        {
+            // 'संबंध मे' / 'सम्बन्ध मे' -> 'संबंध में'
+            if (docText.Contains("संबंध मे") || docText.Contains("सम्बन्ध मे"))
+            {
+                issues.Add(new SpellingIssue
+                {
+                    OriginalWord = "संबंध मे",
+                    SuggestedWord = "संबंध में",
+                    OriginalWordKruti = "laca/k es",
+                    SuggestedWordKruti = "laca/k esa",
+                    Message = "व्याकरण सुधार: 'संबंध मे' -> 'संबंध में'",
+                    IsUnicode = true
+                });
+            }
+
+            // 'की गई था' -> 'की गई थी'
+            if (docText.Contains("की गई था"))
+            {
+                issues.Add(new SpellingIssue
+                {
+                    OriginalWord = "की गई था",
+                    SuggestedWord = "की गई थी",
+                    OriginalWordKruti = "dh xbZ Fkk",
+                    SuggestedWordKruti = "dh xbZ Fkh",
+                    Message = "व्याकरण सुधार: 'याचिका... की गई था' -> 'की गई थी'",
+                    IsUnicode = true
+                });
+            }
+
+            // 'करना है की' -> 'करना है कि'
+            if (docText.Contains("करना है की") || docText.Contains("किया जाता है की") || docText.Contains("सूचित करना है की"))
+            {
+                issues.Add(new SpellingIssue
+                {
+                    OriginalWord = "है की",
+                    SuggestedWord = "है कि",
+                    OriginalWordKruti = "gS dh",
+                    SuggestedWordKruti = "gS fd",
+                    Message = "योजक शब्द सुधार: 'है की' -> 'है कि'",
+                    IsUnicode = true
+                });
+            }
+        }
+
+        private string CleanWord(string token)
+        {
+            if (string.IsNullOrEmpty(token)) return "";
+            // Strip English/Hindi quotes, brackets, punctuation, dashes
+            return token.Trim(new char[] {
+                ' ', '\t', '\r', '\n', '।', ',', '.', ':', ';', '(', ')', '[', ']', '{', '}',
+                '"', '\'', '“', '”', '‘', '’', '-', '—', '–', '/', '\\', '%', '_', '=', '<', '>', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '०', '१', '२', '३', '४', '५', '६', '७', '८', '९'
+            });
+        }
+
+        public static bool IsEnglishOrAlphaNumeric(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return true;
+            foreach (char c in text)
+            {
+                if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))
+                    return true;
+            }
+            return false;
+        }
+
+        public static bool ContainsDevanagari(string text)
+        {
+            foreach (char c in text)
+            {
+                if (c >= '\u0900' && c <= '\u097F') return true;
+            }
+            return false;
+        }
+
+        private static bool IsNumeric(string text)
+        {
+            foreach (char c in text)
+            {
+                if (!char.IsDigit(c) && c != '०' && c != '१' && c != '२' && c != '३' && c != '४' && c != '५' && c != '६' && c != '७' && c != '८' && c != '९' && c != '.' && c != '/' && c != '-')
+                    return false;
+            }
+            return true;
+        }
+
+        private string GetStrictFuzzyMatch(string uniWord)
         {
             string best = "";
             int minDistance = int.MaxValue;
 
             foreach (var dictWord in UnicodeDictionary)
             {
-                if (Math.Abs(dictWord.Length - uniWord.Length) <= 2)
+                if (Math.Abs(dictWord.Length - uniWord.Length) <= 1)
                 {
                     int dist = Levenshtein(uniWord, dictWord);
-                    if (dist < minDistance && dist <= 2)
+                    if (dist == 1) // Strictly 1 typo
                     {
-                        minDistance = dist;
-                        best = dictWord;
+                        return dictWord;
                     }
                 }
             }
-            return best;
+            return "";
         }
 
         public List<string> GetWordSuggestions(string prefix, int maxResults)
@@ -207,25 +337,6 @@ namespace KrutiDevWordAddIn
             }
 
             return suggestions;
-        }
-
-        public static bool ContainsDevanagari(string text)
-        {
-            foreach (char c in text)
-            {
-                if (c >= '\u0900' && c <= '\u097F') return true;
-            }
-            return false;
-        }
-
-        private static bool IsNumeric(string text)
-        {
-            foreach (char c in text)
-            {
-                if (!char.IsDigit(c) && c != '०' && c != '१' && c != '२' && c != '३' && c != '४' && c != '५' && c != '६' && c != '७' && c != '८' && c != '९')
-                    return false;
-            }
-            return true;
         }
 
         private static int Levenshtein(string s, string t)
