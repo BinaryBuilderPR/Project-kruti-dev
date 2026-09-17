@@ -17,16 +17,32 @@ namespace KrutiDevWordAddIn
         private Word.Application wordApp;
         private object addInInstance;
         private SpellCheckEngine spellEngine = new SpellCheckEngine();
+        private GlobalInputHook inlineHook = null;
         private SuggestionPaneForm suggestionPane = null;
 
         public void OnConnection(object Application, ext_ConnectMode ConnectMode, object AddInInst, ref Array custom)
         {
             wordApp = (Word.Application)Application;
             addInInstance = AddInInst;
+
+            // Start inline floating suggestions (Google Input Tools style)
+            try
+            {
+                inlineHook = new GlobalInputHook(spellEngine);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine("Inline hook error: " + ex.Message);
+            }
         }
 
         public void OnDisconnection(ext_DisconnectMode RemoveMode, ref Array custom)
         {
+            if (inlineHook != null)
+            {
+                inlineHook.Dispose();
+                inlineHook = null;
+            }
             if (suggestionPane != null && !suggestionPane.IsDisposed)
             {
                 suggestionPane.Close();
@@ -46,9 +62,11 @@ namespace KrutiDevWordAddIn
   <ribbon>
     <tabs>
       <tab id=""tabKrutiDev"" label=""शिक्षा प्रारूपक (सरायकेला-खरसावाँ)"">
-        <group id=""grpSpell"" label=""वर्तनी एवं स्वतः सुधार"">
-          <button id=""btnCheckDoc"" label=""दस्तावेज़ जाँचें एवं सुधारें"" size=""large"" onAction=""OnCheckDocument"" imageMso=""Spelling"" />
-          <button id=""btnSuggestPane"" label=""शब्द सुझाव साइडबार"" size=""large"" onAction=""OnToggleSuggestionPane"" imageMso=""Thesaurus"" />
+        <group id=""grpSpell"" label=""वर्तनी एवं इनलाइन सुझाव"">
+          <button id=""btnUnderlineErrors"" label=""गलत शब्द रेखांकित करें (Red Wavy)"" size=""large"" onAction=""OnUnderlineErrors"" imageMso=""Spelling"" />
+          <button id=""btnAutoFix"" label=""स्वतः सुधार (Auto-Fix All)"" size=""large"" onAction=""OnAutoFixAll"" imageMso=""AutoCorrect"" />
+          <button id=""btnToggleInline"" label=""इनलाइन पॉपअप ऑन/ऑफ"" size=""normal"" onAction=""OnToggleInlineSuggestions"" imageMso=""GroupFont"" />
+          <button id=""btnSuggestPane"" label=""सहायक साइडबार"" size=""normal"" onAction=""OnToggleSuggestionPane"" imageMso=""Thesaurus"" />
         </group>
         <group id=""grpQuickInsert"" label=""सरकारी पत्र प्रविष्टियाँ"">
           <button id=""btnFullLetter"" label=""सम्पूर्ण सरकारी पत्र प्रारूप"" size=""large"" onAction=""OnInsertFullLetter"" imageMso=""FileNewDefault"" />
@@ -66,25 +84,8 @@ namespace KrutiDevWordAddIn
 </customUI>";
         }
 
-        // Ribbon Callbacks
-        public void OnToggleSuggestionPane(IRibbonControl control)
-        {
-            try
-            {
-                if (suggestionPane == null || suggestionPane.IsDisposed)
-                {
-                    suggestionPane = new SuggestionPaneForm(wordApp, spellEngine);
-                }
-                suggestionPane.Show();
-                suggestionPane.BringToFront();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("त्रुटि: " + ex.Message);
-            }
-        }
-
-        public void OnCheckDocument(IRibbonControl control)
+        // 1. Draw Native Red Wavy Squiggly Underlines under incorrect words in Word Document
+        public void OnUnderlineErrors(IRibbonControl control)
         {
             try
             {
@@ -100,45 +101,109 @@ namespace KrutiDevWordAddIn
                 var issues = spellEngine.CheckDocumentSpellingAndGrammar(docText);
                 if (issues.Count == 0)
                 {
-                    MessageBox.Show("दस्तावेज़ में कोई वर्तनी या व्याकरण त्रुटि नहीं मिली! सभी शब्द सही हैं।", "जाँच पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("दस्तावेज़ में कोई अशुद्धि नहीं मिली! सभी शब्द सही हैं।", "जाँच पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
-                StringBuilder sb = new StringBuilder();
-                sb.AppendLine("निम्नलिखित " + issues.Count + " अशुद्धियाँ / सुझाव पाए गए:\n");
+                int underlinedCount = 0;
                 foreach (var issue in issues)
                 {
-                    sb.AppendLine("• " + issue.OriginalWord + "  ->  " + issue.SuggestedWord + " (" + issue.Message + ")");
-                }
-                sb.AppendLine("\nक्या आप इन सभी त्रुटियों को वर्ड में स्वतः सुधारना चाहते हैं?");
+                    Word.Range range = doc.Content;
+                    Word.Find findObj = range.Find;
+                    findObj.ClearFormatting();
+                    findObj.Text = issue.OriginalWord;
+                    findObj.MatchCase = true;
+                    findObj.Forward = true;
 
-                var result = MessageBox.Show(sb.ToString(), "वर्तनी एवं व्याकरण जाँच परिणाम", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (result == DialogResult.Yes)
-                {
-                    int fixedCount = 0;
-                    foreach (var issue in issues)
+                    while (findObj.Execute())
                     {
-                        Word.Find findObj = doc.Content.Find;
-                        findObj.ClearFormatting();
-                        findObj.Replacement.ClearFormatting();
-
-                        object findText = issue.OriginalWord;
-                        object replaceWith = issue.SuggestedWord;
-                        object replaceAll = Word.WdReplace.wdReplaceAll;
-                        object forward = true;
-                        object matchCase = true;
-                        object missing = Type.Missing;
-
-                        findObj.Execute(
-                            ref findText, ref matchCase, ref missing, ref missing, ref missing,
-                            ref missing, ref forward, ref missing, ref missing, ref replaceWith,
-                            ref replaceAll, ref missing, ref missing, ref missing, ref missing
-                        );
-                        fixedCount++;
+                        // Apply native Word red wavy squiggly underline
+                        range.Underline = Word.WdUnderline.wdUnderlineWavy;
+                        range.Font.UnderlineColor = Word.WdColor.wdColorRed;
+                        underlinedCount++;
                     }
-
-                    MessageBox.Show("सफलतापूर्वक " + fixedCount + " त्रुटियों को वर्ड में स्वतः ठीक कर दिया गया!", "स्वतः सुधार पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 }
+
+                MessageBox.Show("कुल " + issues.Count + " अशुद्ध शब्दों के नीचे लाल लहरदार रेखा (Red Wavy Underline) लगा दी गई है!\n\nसुधारने के लिए 'स्वतः सुधार (Auto-Fix)' बटन दबाएं।", "अशुद्धियाँ रेखांकित", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("त्रुटि: " + ex.Message);
+            }
+        }
+
+        // 2. Auto-Fix all misspelled words and remove squiggly lines
+        public void OnAutoFixAll(IRibbonControl control)
+        {
+            try
+            {
+                if (wordApp.Documents.Count == 0) return;
+                Word.Document doc = wordApp.ActiveDocument;
+                string docText = doc.Content.Text;
+
+                var issues = spellEngine.CheckDocumentSpellingAndGrammar(docText);
+                if (issues.Count == 0)
+                {
+                    MessageBox.Show("कोई अशुद्धि नहीं मिली।", "स्वतः सुधार");
+                    return;
+                }
+
+                int fixedCount = 0;
+                foreach (var issue in issues)
+                {
+                    Word.Find findObj = doc.Content.Find;
+                    findObj.ClearFormatting();
+                    findObj.Replacement.ClearFormatting();
+                    findObj.Replacement.Font.Underline = Word.WdUnderline.wdUnderlineNone;
+
+                    object findText = issue.OriginalWord;
+                    object replaceWith = issue.SuggestedWord;
+                    object replaceAll = Word.WdReplace.wdReplaceAll;
+                    object forward = true;
+                    object matchCase = true;
+                    object missing = Type.Missing;
+
+                    findObj.Execute(
+                        ref findText, ref matchCase, ref missing, ref missing, ref missing,
+                        ref missing, ref forward, ref missing, ref missing, ref replaceWith,
+                        ref replaceAll, ref missing, ref missing, ref missing, ref missing
+                    );
+                    fixedCount++;
+                }
+
+                // Clear any remaining underlines
+                doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
+
+                MessageBox.Show("सफलतापूर्वक " + fixedCount + " अशुद्धियों का स्वतः सुधार कर दिया गया!", "स्वतः सुधार पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("त्रुटि: " + ex.Message);
+            }
+        }
+
+        // 3. Toggle Inline Floating Popup
+        public void OnToggleInlineSuggestions(IRibbonControl control)
+        {
+            if (inlineHook != null)
+            {
+                inlineHook.IsEnabled = !inlineHook.IsEnabled;
+                string status = inlineHook.IsEnabled ? "चालू (ON)" : "बंद (OFF)";
+                MessageBox.Show("इनलाइन स्वतः पूर्ण सुझाव पॉपअप अब " + status + " है।", "इनलाइन सुझाव स्थिति");
+            }
+        }
+
+        // 4. Toggle Sidebar
+        public void OnToggleSuggestionPane(IRibbonControl control)
+        {
+            try
+            {
+                if (suggestionPane == null || suggestionPane.IsDisposed)
+                {
+                    suggestionPane = new SuggestionPaneForm(wordApp, spellEngine);
+                }
+                suggestionPane.Show();
+                suggestionPane.BringToFront();
             }
             catch (Exception ex)
             {
@@ -179,7 +244,7 @@ namespace KrutiDevWordAddIn
 
                 string unicodeText = KrutiDevConverter.KrutiToUnicode(selText);
                 Clipboard.SetText(unicodeText);
-                MessageBox.Show("चयनित कृति देव टेक्स्ट को यूनिकोड हिन्दी में परिवर्तित कर क्लिपबोर्ड में कॉपी कर दिया गया है!\n\n(आप इसे सीधे ई-कल्याण/एचआरएमएस या ईमेल में पेस्ट कर सकते हैं)", "यूनिकोड रूपांतरण सफल");
+                MessageBox.Show("चयनित कृति देव टेक्स्ट को यूनिकोड हिन्दी में परिवर्तित कर क्लिपबोर्ड में कॉपी कर दिया गया है!", "यूनिकोड रूपांतरण सफल");
             }
             catch (Exception ex)
             {
