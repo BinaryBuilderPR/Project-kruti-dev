@@ -253,17 +253,26 @@ namespace KrutiDevWordAddIn
 
         public void OnInsertSender(IRibbonControl control)
         {
-            InsertTextToWord(TemplatesData.SenderBlock);
+            InsertTextToWord(
+@"प्रेषक -
+    जिला शिक्षा अधीक्षक -
+    सरायकेला-खरसावाँ।");
         }
 
         public void OnInsertSignature(IRibbonControl control)
         {
-            InsertTextToWord(TemplatesData.SignatureBlock);
+            InsertTextToWord(
+@"विश्वासभाजन
+
+जिला शिक्षा अधीक्षक
+सरायकेला-खरसावाँ।");
         }
 
         public void OnInsertHeader(IRibbonControl control)
         {
-            InsertTextToWord(TemplatesData.HeaderBlock);
+            InsertTextToWord(
+@"कार्यालय - जिला शिक्षा अधीक्षक - सरायकेला-खरसावाँ
+पत्रांक % ................. / दिनांक % .................");
         }
 
         public void OnConvertToUnicode(IRibbonControl control)
