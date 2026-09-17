@@ -44,7 +44,7 @@ Set-ItemProperty -Path $progIdSub -Name "(Default)" -Value $progId
 Write-Host "[3/3] Registering Add-in into Microsoft Word 2024..." -ForegroundColor Green
 $wordAddinPath = "HKCU:\Software\Microsoft\Office\Word\Addins\$progId"
 if (-not (Test-Path $wordAddinPath)) { New-Item -Path $wordAddinPath -Force | Out-Null }
-Set-ItemProperty -Path $wordAddinPath -Name "FriendlyName" -Value "शिक्षा प्रारूपक (कृति देव 010 सहायक)"
+Set-ItemProperty -Path $wordAddinPath -Name "FriendlyName" -Value "Kruti Dev Assistant (Saraikela-Kharsawan)"
 Set-ItemProperty -Path $wordAddinPath -Name "Description" -Value "Jharkhand Education Dept Kruti Dev 010 Drafting & Spellcheck Add-in"
 Set-ItemProperty -Path $wordAddinPath -Name "LoadBehavior" -Value 3 -Type DWord
 Set-ItemProperty -Path $wordAddinPath -Name "CommandLineSafe" -Value 0 -Type DWord
@@ -52,6 +52,7 @@ Set-ItemProperty -Path $wordAddinPath -Name "CommandLineSafe" -Value 0 -Type DWo
 Write-Host "`n==========================================================" -ForegroundColor Cyan
 Write-Host " SUCCESS! Kruti Dev Word Add-in is now registered!" -ForegroundColor Green
 Write-Host " When you open Microsoft Word, you will see the" -ForegroundColor Yellow
-Write-Host " '[शिक्षा प्रारूपक (कृति देव)]' tab on top in the Word Ribbon." -ForegroundColor Yellow
+Write-Host " '[Kruti Dev Assistant]' tab on top in the Word Ribbon." -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
+
 

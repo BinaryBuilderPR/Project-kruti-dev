@@ -66,7 +66,37 @@ namespace KrutiDevWordAddIn
         {
             if (string.IsNullOrEmpty(krutiText)) return "";
 
-            string res = krutiText;
+            // Protect repeated dots (e.g. ................), numeric decimals, and standalone dots using Unicode Private Use characters
+            Dictionary<char, string> dotPlaceholders = new Dictionary<char, string>();
+            int puaCode = 0xE000;
+
+            string res = Regex.Replace(krutiText, @"\.{2,}", m =>
+            {
+                char key = (char)(puaCode++);
+                dotPlaceholders[key] = m.Value;
+                return key.ToString();
+            });
+            res = Regex.Replace(res, @"(?<=\d)\.(?=\d)", m =>
+            {
+                char key = (char)(puaCode++);
+                dotPlaceholders[key] = ".";
+                return key.ToString();
+            });
+            res = Regex.Replace(res, @"\.(?=\s|$)", m =>
+            {
+                char key = (char)(puaCode++);
+                dotPlaceholders[key] = ".";
+                return key.ToString();
+            });
+
+            // Protect brackets with digits/text (e.g. [1], [2], [A], [B])
+            res = Regex.Replace(res, @"\[([0-9a-zA-Z\s]+)\]", m =>
+            {
+                char key = (char)(puaCode++);
+                dotPlaceholders[key] = m.Value;
+                return key.ToString();
+            });
+
             foreach (var kvp in MultiMap)
             {
                 res = res.Replace(kvp.Key, kvp.Value);
@@ -96,6 +126,13 @@ namespace KrutiDevWordAddIn
             res = Regex.Replace(res, @"((?:[\u0915-\u0939]्)*[\u0915-\u0939][\u093E-\u094C\u0901-\u0903]*)Z", "र्$1");
 
             res = res.Replace("अा", "आ").Replace("ाे", "ो").Replace("ाै", "ौ").Replace("ॅं", "ँ").Replace("ाॅं", "ाँ");
+
+            // Restore protected dots and brackets
+            foreach (var kvp in dotPlaceholders)
+            {
+                res = res.Replace(kvp.Key.ToString(), kvp.Value);
+            }
+
             return res;
         }
 

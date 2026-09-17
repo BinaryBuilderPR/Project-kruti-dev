@@ -117,7 +117,7 @@ namespace KrutiDevWordAddIn
             // Live Autocomplete Search Box
             GroupBox grpSuggest = new GroupBox
             {
-                Text = " शब्द खोज एवं स्वतः पूर्ण सुझाव (IntelliSense) ",
+                Text = " Word Search & IntelliSense Autocomplete ",
                 Location = new Point(12, 255),
                 Size = new Size(350, 235),
                 Font = new Font("Segoe UI", 9f, FontStyle.Bold)
@@ -125,7 +125,7 @@ namespace KrutiDevWordAddIn
 
             Label lblType = new Label
             {
-                Text = "शब्द टाइप करें (Type in Hindi or Kruti):",
+                Text = "Search word prefix (Type in Kruti Dev or Unicode):",
                 Location = new Point(10, 22),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Regular)
@@ -155,22 +155,48 @@ namespace KrutiDevWordAddIn
             // Bottom Scan & Fix Button
             btnScanAndFix = new Button
             {
-                Text = "🔍 दस्तावेज़ में वर्तनी सुधारें (Scan & Auto-Fix Doc)",
+                Text = "🔍 Scan & Auto-Fix Document Errors",
                 Location = new Point(12, 498),
-                Size = new Size(350, 42),
+                Size = new Size(220, 42),
                 BackColor = Color.FromArgb(220, 53, 69),
                 ForeColor = Color.White,
                 FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10f, FontStyle.Bold),
+                Font = new Font("Segoe UI", 9.5f, FontStyle.Bold),
                 Cursor = Cursors.Hand
             };
             btnScanAndFix.Click += BtnScanAndFix_Click;
             this.Controls.Add(btnScanAndFix);
 
+            Button btnClearUnderlines = new Button
+            {
+                Text = "🧹 Clear Lines",
+                Location = new Point(238, 498),
+                Size = new Size(124, 42),
+                BackColor = Color.FromArgb(108, 117, 125),
+                ForeColor = Color.White,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9f, FontStyle.Bold),
+                Cursor = Cursors.Hand
+            };
+            btnClearUnderlines.Click += (s, e) =>
+            {
+                try
+                {
+                    if (wordApp.Documents.Count > 0)
+                    {
+                        wordApp.ActiveDocument.Content.Underline = Word.WdUnderline.wdUnderlineNone;
+                        wordApp.ActiveDocument.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
+                        MessageBox.Show("All underlines and highlights cleared!", "Cleared", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
+                }
+                catch { }
+            };
+            this.Controls.Add(btnClearUnderlines);
+
             lblStatus = new Label
             {
-                Text = "सुझाव को वर्ड में डालने के लिए सूची पर डबल-क्लिक करें।",
-                Location = new Point(12, 545),
+                Text = "Double-click any suggestion above to insert directly into Word.",
+                Location = new Point(12, 548),
                 Size = new Size(350, 25),
                 ForeColor = Color.FromArgb(108, 117, 125),
                 Font = new Font("Segoe UI", 8.5f, FontStyle.Italic)
@@ -213,7 +239,7 @@ namespace KrutiDevWordAddIn
             {
                 if (wordApp.Documents.Count == 0)
                 {
-                    MessageBox.Show("कृपया पहले एमएस वर्ड में कोई दस्तावेज़ खोलें।", "वर्ड कनेक्ट");
+                    MessageBox.Show("Please open a document in Microsoft Word first.", "Word Connect", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
@@ -223,7 +249,9 @@ namespace KrutiDevWordAddIn
                 var issues = spellEngine.CheckDocumentSpellingAndGrammar(docText);
                 if (issues.Count == 0)
                 {
-                    MessageBox.Show("दस्तावेज़ में कोई वर्तनी त्रुटि नहीं मिली! सभी शब्द सही हैं।", "जाँच पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
+                    doc.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
+                    MessageBox.Show("No spelling or grammar errors found! All words are correct.", "Check Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
@@ -233,27 +261,33 @@ namespace KrutiDevWordAddIn
                     Word.Find findObj = doc.Content.Find;
                     findObj.ClearFormatting();
                     findObj.Replacement.ClearFormatting();
+                    findObj.Replacement.Font.Underline = Word.WdUnderline.wdUnderlineNone;
+                    findObj.Replacement.Highlight = 0;
 
                     object findText = issue.OriginalWord;
                     object replaceWith = issue.SuggestedWord;
                     object replaceAll = Word.WdReplace.wdReplaceAll;
                     object forward = true;
                     object matchCase = true;
+                    object wrap = Word.WdFindWrap.wdFindContinue;
                     object missing = Type.Missing;
 
                     findObj.Execute(
                         ref findText, ref matchCase, ref missing, ref missing, ref missing,
-                        ref missing, ref forward, ref missing, ref missing, ref replaceWith,
+                        ref missing, ref forward, ref wrap, ref missing, ref replaceWith,
                         ref replaceAll, ref missing, ref missing, ref missing, ref missing
                     );
                     fixedCount++;
                 }
 
-                MessageBox.Show("सफलतापूर्वक " + fixedCount + " अशुद्धियों को वर्ड में ठीक कर दिया गया!", "स्वतः सुधार पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
+                doc.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
+
+                MessageBox.Show("Successfully auto-fixed " + fixedCount + " error pattern(s) in Microsoft Word!\n\nAll underlines and highlights have been removed.", "Auto-Fix Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
-                MessageBox.Show("त्रुटि: " + ex.Message);
+                MessageBox.Show("Error: " + ex.Message, "Kruti Dev Assistant", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
@@ -278,7 +312,7 @@ namespace KrutiDevWordAddIn
             }
             catch (Exception ex)
             {
-                MessageBox.Show("त्रुटि: " + ex.Message);
+                MessageBox.Show("Error: " + ex.Message, "Kruti Dev Assistant", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }

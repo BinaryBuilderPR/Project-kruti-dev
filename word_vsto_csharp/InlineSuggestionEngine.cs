@@ -17,7 +17,7 @@ namespace KrutiDevWordAddIn
         private SpellCheckEngine spellEngine;
         private string currentBuffer = "";
         private List<string> currentCandidates = new List<string>();
-        private List<string> currentCandidatesRaw = new List<string>();
+        private List<string> currentCandidatesKruti = new List<string>();
 
         // Win32 Caret and Hook APIs
         private const int WS_EX_NOACTIVATE = 0x08000000;
@@ -51,9 +51,10 @@ namespace KrutiDevWordAddIn
             this.StartPosition = FormStartPosition.Manual;
             this.ShowInTaskbar = false;
             this.TopMost = true;
-            this.BackColor = Color.FromArgb(240, 240, 240);
-            this.Size = new Size(240, 165);
+            this.BackColor = Color.FromArgb(220, 224, 230);
+            this.Size = new Size(270, 165);
             this.Padding = new Padding(1);
+            this.DoubleBuffered = true;
 
             Panel borderPanel = new Panel
             {
@@ -66,7 +67,7 @@ namespace KrutiDevWordAddIn
             {
                 Dock = DockStyle.Fill,
                 BorderStyle = BorderStyle.None,
-                Font = new Font("Segoe UI", 11.5f, FontStyle.Regular),
+                Font = new Font("Segoe UI", 11f, FontStyle.Regular),
                 ItemHeight = 28,
                 DrawMode = DrawMode.OwnerDrawFixed,
                 BackColor = Color.White
@@ -81,9 +82,10 @@ namespace KrutiDevWordAddIn
             if (e.Index < 0 || e.Index >= currentCandidates.Count) return;
 
             bool isSelected = (e.Index == 0); // Top suggestion highlighted like Google Input Tools
-            Color bg = isSelected ? Color.FromArgb(204, 232, 255) : Color.White;
-            Color fg = Color.FromArgb(30, 30, 30);
-            Color numColor = Color.FromArgb(100, 100, 100);
+            Color bg = isSelected ? Color.FromArgb(215, 238, 255) : Color.White;
+            Color fg = Color.FromArgb(20, 20, 20);
+            Color numColor = Color.FromArgb(90, 90, 90);
+            Color krutiColor = Color.FromArgb(120, 120, 120);
 
             using (SolidBrush bgBrush = new SolidBrush(bg))
             {
@@ -92,24 +94,35 @@ namespace KrutiDevWordAddIn
 
             if (isSelected)
             {
-                using (Pen borderPen = new Pen(Color.FromArgb(153, 209, 255)))
+                using (Pen borderPen = new Pen(Color.FromArgb(140, 195, 255)))
                 {
                     e.Graphics.DrawRectangle(borderPen, e.Bounds.X, e.Bounds.Y, e.Bounds.Width - 1, e.Bounds.Height - 1);
                 }
             }
 
             // Draw number (1..5)
-            string numStr = (e.Index + 1).ToString();
+            string numStr = (e.Index + 1).ToString() + ".";
             using (SolidBrush numBrush = new SolidBrush(numColor))
             {
-                e.Graphics.DrawString(numStr, new Font("Segoe UI", 9.5f, FontStyle.Regular), numBrush, e.Bounds.X + 6, e.Bounds.Y + 5);
+                e.Graphics.DrawString(numStr, new Font("Segoe UI", 9.5f, FontStyle.Bold), numBrush, e.Bounds.X + 4, e.Bounds.Y + 5);
             }
 
             // Draw Hindi Word
             string wordStr = currentCandidates[e.Index];
             using (SolidBrush textBrush = new SolidBrush(fg))
             {
-                e.Graphics.DrawString(wordStr, new Font("Segoe UI", 11.5f, FontStyle.Regular), textBrush, e.Bounds.X + 28, e.Bounds.Y + 3);
+                e.Graphics.DrawString(wordStr, new Font("Segoe UI", 11f, FontStyle.Bold), textBrush, e.Bounds.X + 26, e.Bounds.Y + 3);
+            }
+
+            // Draw Kruti Remington Hint (gray)
+            if (e.Index < currentCandidatesKruti.Count && !string.IsNullOrEmpty(currentCandidatesKruti[e.Index]))
+            {
+                string kHint = "[" + currentCandidatesKruti[e.Index] + "]";
+                using (SolidBrush hintBrush = new SolidBrush(krutiColor))
+                {
+                    SizeF wordSize = e.Graphics.MeasureString(wordStr, new Font("Segoe UI", 11f, FontStyle.Bold));
+                    e.Graphics.DrawString(kHint, new Font("Segoe UI", 8.5f, FontStyle.Italic), hintBrush, e.Bounds.X + 28 + (int)wordSize.Width + 4, e.Bounds.Y + 6);
+                }
             }
         }
 
@@ -128,17 +141,28 @@ namespace KrutiDevWordAddIn
             {
                 // Fallback direct conversion
                 string direct = SpellCheckEngine.ContainsDevanagari(buffer) ? buffer : KrutiDevConverter.KrutiToUnicode(buffer);
-                sugs.Add(direct + "  [" + KrutiDevConverter.UnicodeToKruti(direct) + "]");
+                if (!string.IsNullOrEmpty(direct))
+                {
+                    sugs.Add(direct + "  [" + KrutiDevConverter.UnicodeToKruti(direct) + "]");
+                }
+            }
+
+            if (sugs.Count == 0)
+            {
+                this.Hide();
+                return;
             }
 
             currentCandidates.Clear();
-            currentCandidatesRaw.Clear();
+            currentCandidatesKruti.Clear();
 
             foreach (var s in sugs)
             {
-                string uWord = s.Split(new string[] { "  [" }, StringSplitOptions.None)[0].Trim();
+                string[] parts = s.Split(new string[] { "  [" }, StringSplitOptions.None);
+                string uWord = parts[0].Trim();
+                string kWord = parts.Length > 1 ? parts[1].Replace("]", "").Trim() : KrutiDevConverter.UnicodeToKruti(uWord);
                 currentCandidates.Add(uWord);
-                currentCandidatesRaw.Add(s);
+                currentCandidatesKruti.Add(kWord);
             }
 
             lstSuggestions.Items.Clear();
@@ -148,12 +172,12 @@ namespace KrutiDevWordAddIn
             }
 
             int itemHeight = 28;
-            int totalHeight = Math.Max(35, currentCandidates.Count * itemHeight + 8);
-            this.Size = new Size(240, totalHeight);
+            int totalHeight = Math.Max(35, currentCandidates.Count * itemHeight + 6);
+            this.Size = new Size(270, totalHeight);
 
             // Position right below cursor
             int posX = caretPos.X;
-            int posY = caretPos.Y + 22;
+            int posY = caretPos.Y + 20;
 
             // Screen boundary check
             Screen currentScreen = Screen.FromPoint(caretPos);
@@ -170,11 +194,20 @@ namespace KrutiDevWordAddIn
             this.Invalidate();
         }
 
-        public string GetCandidate(int index)
+        public string GetCandidateUnicode(int index)
         {
             if (index >= 0 && index < currentCandidates.Count)
             {
                 return currentCandidates[index];
+            }
+            return "";
+        }
+
+        public string GetCandidateKruti(int index)
+        {
+            if (index >= 0 && index < currentCandidatesKruti.Count)
+            {
+                return currentCandidatesKruti[index];
             }
             return "";
         }
@@ -247,11 +280,13 @@ namespace KrutiDevWordAddIn
         private StringBuilder typedBuffer = new StringBuilder();
         private InlineSuggestionForm suggestionForm;
         private SpellCheckEngine spellEngine;
+        private object wordApp;
         public bool IsEnabled = true;
 
-        public GlobalInputHook(SpellCheckEngine engine)
+        public GlobalInputHook(SpellCheckEngine engine, object app = null)
         {
             this.spellEngine = engine;
+            this.wordApp = app;
             this.suggestionForm = new InlineSuggestionForm(engine);
             this.hookProc = HookCallback;
             this.hookId = SetHook(this.hookProc);
@@ -259,30 +294,65 @@ namespace KrutiDevWordAddIn
 
         private IntPtr SetHook(LowLevelKeyboardProc proc)
         {
-            using (var curProcess = System.Diagnostics.Process.GetCurrentProcess())
-            using (var curModule = curProcess.MainModule)
+            try
             {
-                return SetWindowsHookEx(WH_KEYBOARD_LL, proc, GetModuleHandle(curModule.ModuleName), 0);
+                using (var curProcess = System.Diagnostics.Process.GetCurrentProcess())
+                using (var curModule = curProcess.MainModule)
+                {
+                    IntPtr hMod = GetModuleHandle(curModule.ModuleName);
+                    return SetWindowsHookEx(WH_KEYBOARD_LL, proc, hMod, 0);
+                }
+            }
+            catch
+            {
+                return IntPtr.Zero;
             }
         }
 
         public Point GetCaretPosition()
         {
-            GUITHREADINFO guiInfo = new GUITHREADINFO();
-            guiInfo.cbSize = Marshal.SizeOf(guiInfo);
-            GetGUIThreadInfo(0, ref guiInfo);
+            // 1. Try Microsoft Word COM ActiveWindow.GetPoint if inside Word
+            if (wordApp != null)
+            {
+                try
+                {
+                    dynamic app = wordApp;
+                    if (app.Documents.Count > 0 && app.Selection != null)
+                    {
+                        int left = 0, top = 0, width = 0, height = 0;
+                        app.ActiveWindow.GetPoint(out left, out top, out width, out height, app.Selection.Range);
+                        if (left > 0 && top > 0)
+                        {
+                            return new Point(left, top + height);
+                        }
+                    }
+                }
+                catch { }
+            }
 
-            POINT pt = new POINT { X = guiInfo.rcCaret.Left, Y = guiInfo.rcCaret.Bottom };
-            if (guiInfo.hwndCaret != IntPtr.Zero)
+            // 2. Fallback to Win32 GetGUIThreadInfo
+            try
             {
-                ClientToScreen(guiInfo.hwndCaret, ref pt);
-                return new Point(pt.X, pt.Y);
+                GUITHREADINFO guiInfo = new GUITHREADINFO();
+                guiInfo.cbSize = Marshal.SizeOf(guiInfo);
+                GetGUIThreadInfo(0, ref guiInfo);
+
+                if (guiInfo.hwndCaret != IntPtr.Zero && (guiInfo.rcCaret.Left != 0 || guiInfo.rcCaret.Top != 0))
+                {
+                    POINT pt = new POINT { X = guiInfo.rcCaret.Left, Y = guiInfo.rcCaret.Bottom };
+                    ClientToScreen(guiInfo.hwndCaret, ref pt);
+                    return new Point(pt.X, pt.Y);
+                }
+                if (guiInfo.hwndFocus != IntPtr.Zero && (guiInfo.rcCaret.Left != 0 || guiInfo.rcCaret.Top != 0))
+                {
+                    POINT pt = new POINT { X = guiInfo.rcCaret.Left, Y = guiInfo.rcCaret.Bottom };
+                    ClientToScreen(guiInfo.hwndFocus, ref pt);
+                    return new Point(pt.X, pt.Y);
+                }
             }
-            if (guiInfo.hwndFocus != IntPtr.Zero)
-            {
-                ClientToScreen(guiInfo.hwndFocus, ref pt);
-                return new Point(pt.X, pt.Y);
-            }
+            catch { }
+
+            // 3. Fallback to Cursor position
             return Cursor.Position;
         }
 
@@ -297,10 +367,11 @@ namespace KrutiDevWordAddIn
                 if (suggestionForm.Visible && key >= Keys.D1 && key <= Keys.D5)
                 {
                     int index = (int)(key - Keys.D1);
-                    string selectedWord = suggestionForm.GetCandidate(index);
-                    if (!string.IsNullOrEmpty(selectedWord))
+                    string selectedUni = suggestionForm.GetCandidateUnicode(index);
+                    string selectedKruti = suggestionForm.GetCandidateKruti(index);
+                    if (!string.IsNullOrEmpty(selectedUni))
                     {
-                        ReplaceBufferWithWord(selectedWord);
+                        ReplaceBufferWithWord(selectedUni, selectedKruti);
                         return (IntPtr)1; // Consume key
                     }
                 }
@@ -308,10 +379,11 @@ namespace KrutiDevWordAddIn
                 // Handle Tab / Enter when suggestion window is active
                 if (suggestionForm.Visible && (key == Keys.Tab || key == Keys.Enter))
                 {
-                    string topWord = suggestionForm.GetCandidate(0);
-                    if (!string.IsNullOrEmpty(topWord))
+                    string topUni = suggestionForm.GetCandidateUnicode(0);
+                    string topKruti = suggestionForm.GetCandidateKruti(0);
+                    if (!string.IsNullOrEmpty(topUni))
                     {
-                        ReplaceBufferWithWord(topWord);
+                        ReplaceBufferWithWord(topUni, topKruti);
                         return (IntPtr)1; // Consume key
                     }
                 }
@@ -331,7 +403,7 @@ namespace KrutiDevWordAddIn
                     return CallNextHookEx(hookId, nCode, wParam, lParam);
                 }
 
-                // Handle Escape or Space (Dismiss popup)
+                // Handle Escape (Dismiss popup)
                 if (key == Keys.Escape)
                 {
                     typedBuffer.Clear();
@@ -339,6 +411,7 @@ namespace KrutiDevWordAddIn
                     return CallNextHookEx(hookId, nCode, wParam, lParam);
                 }
 
+                // Handle Space or standard end-of-word punctuation
                 if (key == Keys.Space || key == Keys.OemPeriod || key == Keys.Oemcomma)
                 {
                     typedBuffer.Clear();
@@ -348,7 +421,7 @@ namespace KrutiDevWordAddIn
 
                 // Capture typed characters
                 char c = GetCharFromKey(key);
-                if (c != '\0' && (char.IsLetterOrDigit(c) || c == '\'' || c == '\"' || c == '=' || c == '~' || c == '`'))
+                if (c != '\0' && (char.IsLetterOrDigit(c) || c == '\'' || c == '\"' || c == '=' || c == '~' || c == '`' || c == ';' || c == '/' || c == '[' || c == ']' || c == '{' || c == '}'))
                 {
                     typedBuffer.Append(c);
                     UpdatePopup();
@@ -372,24 +445,63 @@ namespace KrutiDevWordAddIn
             }
         }
 
-        private void ReplaceBufferWithWord(string unicodeWord)
+        private void ReplaceBufferWithWord(string unicodeWord, string krutiWord)
         {
             int bufLen = typedBuffer.Length;
             typedBuffer.Clear();
             suggestionForm.Dismiss();
 
-            // Send backspaces to delete typed characters
+            // Check if current Word selection is Kruti Dev or Unicode
+            bool isKruti = true;
+            try
+            {
+                if (wordApp != null)
+                {
+                    dynamic app = wordApp;
+                    if (app.Selection != null && app.Selection.Font != null && app.Selection.Font.Name != null)
+                    {
+                        string fName = ((string)app.Selection.Font.Name).ToLower();
+                        if (!fName.Contains("kruti") && !fName.Contains("dev 010") && !fName.Contains("walkman") && !fName.Contains("chanakya"))
+                        {
+                            if (fName.Contains("mangal") || fName.Contains("nirmala") || fName.Contains("aparajita") || fName.Contains("arial") || fName.Contains("calibri"))
+                            {
+                                isKruti = false;
+                            }
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            string textToSend = isKruti ? (string.IsNullOrEmpty(krutiWord) ? KrutiDevConverter.UnicodeToKruti(unicodeWord) : krutiWord) : unicodeWord;
+
+            // Send backspaces to erase the typed prefix
             for (int i = 0; i < bufLen; i++)
             {
                 keybd_event(VK_BACK, 0, 0, UIntPtr.Zero);
                 keybd_event(VK_BACK, 0, KEYEVENTF_KEYUP, UIntPtr.Zero);
             }
 
-            // Convert to Kruti Dev representation for Remington Word typing
-            string krutiWord = KrutiDevConverter.UnicodeToKruti(unicodeWord);
-            
-            // Paste or send text
-            SendKeys.SendWait(krutiWord);
+            // Send escaped text into Word
+            SendKeys.SendWait(EscapeForSendKeys(textToSend));
+        }
+
+        private static string EscapeForSendKeys(string str)
+        {
+            if (string.IsNullOrEmpty(str)) return "";
+            StringBuilder sb = new StringBuilder();
+            foreach (char c in str)
+            {
+                if (c == '+' || c == '^' || c == '%' || c == '~' || c == '(' || c == ')' || c == '{' || c == '}')
+                {
+                    sb.Append("{" + c + "}");
+                }
+                else
+                {
+                    sb.Append(c);
+                }
+            }
+            return sb.ToString();
         }
 
         private char GetCharFromKey(Keys key)
@@ -403,6 +515,7 @@ namespace KrutiDevWordAddIn
             {
                 return key.ToString()[1];
             }
+            if (key == Keys.Oem1) return shift ? ':' : ';';
             if (key == Keys.OemQuotes) return shift ? '\"' : '\'';
             if (key == Keys.OemMinus) return shift ? '_' : '-';
             if (key == Keys.Oemplus) return shift ? '+' : '=';
@@ -427,4 +540,3 @@ namespace KrutiDevWordAddIn
         }
     }
 }
-
