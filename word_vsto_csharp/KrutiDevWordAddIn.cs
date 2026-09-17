@@ -20,12 +20,15 @@ namespace KrutiDevWordAddIn
         private GlobalInputHook inlineHook = null;
         private SuggestionPaneForm suggestionPane = null;
 
+        // Distinct Highlight Color: Amber Orange / Cyan / Violet (distinct from default red)
+        private Word.WdColor HighlightWavyColor = Word.WdColor.wdColorOrange;
+        private Word.WdColorIndex HighlightBgColor = Word.WdColorIndex.wdYellow;
+
         public void OnConnection(object Application, ext_ConnectMode ConnectMode, object AddInInst, ref Array custom)
         {
             wordApp = (Word.Application)Application;
             addInInstance = AddInInst;
 
-            // Start inline floating suggestions (Google Input Tools style)
             try
             {
                 inlineHook = new GlobalInputHook(spellEngine);
@@ -62,17 +65,18 @@ namespace KrutiDevWordAddIn
   <ribbon>
     <tabs>
       <tab id=""tabKrutiDev"" label=""शिक्षा प्रारूपक (सरायकेला-खरसावाँ)"">
-        <group id=""grpSpell"" label=""वर्तनी एवं इनलाइन सुझाव"">
-          <button id=""btnUnderlineErrors"" label=""गलत शब्द रेखांकित करें (Red Wavy)"" size=""large"" onAction=""OnUnderlineErrors"" imageMso=""Spelling"" />
+        <group id=""grpSpell"" label=""वर्तनी एवं विशिष्ट हाइलाइट"">
+          <button id=""btnHighlightErrors"" label=""त्रुटियाँ विशिष्ट रंग में हाइलाइट करें"" size=""large"" onAction=""OnHighlightErrors"" imageMso=""HighlightColorPicker"" />
           <button id=""btnAutoFix"" label=""स्वतः सुधार (Auto-Fix All)"" size=""large"" onAction=""OnAutoFixAll"" imageMso=""AutoCorrect"" />
-          <button id=""btnToggleInline"" label=""इनलाइन पॉपअप ऑन/ऑफ"" size=""normal"" onAction=""OnToggleInlineSuggestions"" imageMso=""GroupFont"" />
-          <button id=""btnSuggestPane"" label=""सहायक साइडबार"" size=""normal"" onAction=""OnToggleSuggestionPane"" imageMso=""Thesaurus"" />
+          <button id=""btnHideWordSquiggles"" label=""वर्ड की लाल लाइनें छुपाएं"" size=""normal"" onAction=""OnHideEnglishSquiggles"" imageMso=""ReviewShowBalloons"" />
+          <button id=""btnToggleInline"" label=""इनलाइन पॉपअप (On/Off)"" size=""normal"" onAction=""OnToggleInlineSuggestions"" imageMso=""GroupFont"" />
         </group>
         <group id=""grpQuickInsert"" label=""सरकारी पत्र प्रविष्टियाँ"">
           <button id=""btnFullLetter"" label=""सम्पूर्ण सरकारी पत्र प्रारूप"" size=""large"" onAction=""OnInsertFullLetter"" imageMso=""FileNewDefault"" />
           <button id=""btnSender"" label=""प्रेषक: जिला शिक्षा अधीक्षक"" size=""normal"" onAction=""OnInsertSender"" imageMso=""MailMergeInsertAddressBlock"" />
           <button id=""btnSignature"" label=""विश्वासभाजन: जिला शिक्षा अधीक्षक"" size=""normal"" onAction=""OnInsertSignature"" imageMso=""SignatureLineInsert"" />
           <button id=""btnHeader"" label=""कार्यालय शीर्ष"" size=""normal"" onAction=""OnInsertHeader"" imageMso=""HeaderFooterLinkToPrevious"" />
+          <button id=""btnSuggestPane"" label=""सहायक साइडबार"" size=""normal"" onAction=""OnToggleSuggestionPane"" imageMso=""Thesaurus"" />
         </group>
         <group id=""grpConvert"" label=""फॉन्ट रूपांतरण"">
           <button id=""btnToUnicode"" label=""यूनिकोड में बदलें"" size=""normal"" onAction=""OnConvertToUnicode"" imageMso=""GroupConvert"" />
@@ -84,8 +88,29 @@ namespace KrutiDevWordAddIn
 </customUI>";
         }
 
-        // 1. Draw Native Red Wavy Squiggly Underlines under incorrect words in Word Document
-        public void OnUnderlineErrors(IRibbonControl control)
+        // 1. Hide default noisy English red squiggly lines across the entire Hindi document
+        public void OnHideEnglishSquiggles(IRibbonControl control)
+        {
+            try
+            {
+                if (wordApp.Documents.Count == 0) return;
+                Word.Document doc = wordApp.ActiveDocument;
+                
+                // Disable Word's English spellchecker noise on this Hindi doc
+                doc.ShowSpellingErrors = false;
+                doc.ShowGrammaticalErrors = false;
+                doc.Content.NoProofing = 1;
+
+                MessageBox.Show("एमएस वर्ड की अनचाही अंग्रेजी लाल लाइनें छुपा दी गई हैं!\n\nअब केवल हमारे प्रारूपक द्वारा जाँचे गए वास्तविक गलत शब्द ही अलग रंग में दिखेंगे।", "दस्तावेज़ स्वच्छ", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("त्रुटि: " + ex.Message);
+            }
+        }
+
+        // 2. Highlight only real Hindi/Kruti Dev errors with DISTINCT high-contrast Orange Wavy + Yellow Marker
+        public void OnHighlightErrors(IRibbonControl control)
         {
             try
             {
@@ -96,16 +121,25 @@ namespace KrutiDevWordAddIn
                 }
 
                 Word.Document doc = wordApp.ActiveDocument;
-                string docText = doc.Content.Text;
+                
+                // First turn off Word's noisy English squiggles
+                doc.ShowSpellingErrors = false;
+                doc.Content.NoProofing = 1;
 
+                string docText = doc.Content.Text;
                 var issues = spellEngine.CheckDocumentSpellingAndGrammar(docText);
+
                 if (issues.Count == 0)
                 {
-                    MessageBox.Show("दस्तावेज़ में कोई अशुद्धि नहीं मिली! सभी शब्द सही हैं।", "जाँच पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    MessageBox.Show("दस्तावेज़ में कोई वर्तनी या व्याकरण त्रुटि नहीं मिली! सभी शब्द सही हैं।", "जाँच पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
-                int underlinedCount = 0;
+                // Clear previous custom highlights
+                doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
+                doc.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
+
+                int highlightedCount = 0;
                 foreach (var issue in issues)
                 {
                     Word.Range range = doc.Content;
@@ -117,14 +151,15 @@ namespace KrutiDevWordAddIn
 
                     while (findObj.Execute())
                     {
-                        // Apply native Word red wavy squiggly underline
+                        // Use DISTINCT Cyan/Orange Wavy underline + Soft Yellow background marker
                         range.Underline = Word.WdUnderline.wdUnderlineWavy;
-                        range.Font.UnderlineColor = Word.WdColor.wdColorRed;
-                        underlinedCount++;
+                        range.Font.UnderlineColor = Word.WdColor.wdColorOrange;
+                        range.HighlightColorIndex = Word.WdColorIndex.wdTurquoise;
+                        highlightedCount++;
                     }
                 }
 
-                MessageBox.Show("कुल " + issues.Count + " अशुद्ध शब्दों के नीचे लाल लहरदार रेखा (Red Wavy Underline) लगा दी गई है!\n\nसुधारने के लिए 'स्वतः सुधार (Auto-Fix)' बटन दबाएं।", "अशुद्धियाँ रेखांकित", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("कुल " + issues.Count + " वास्तविक त्रुटियों को विशिष्ट फ़िरोज़ी (Turquoise) / नारंगी (Orange) रंग में स्पष्ट रूप से चिह्नित कर दिया गया है!\n\n(यह वर्ड के डिफ़ॉल्ट लाल रंग से अलग और स्पष्ट दिखता है)\n\nसुधारने के लिए 'स्वतः सुधार (Auto-Fix All)' बटन दबाएं।", "विशिष्ट रंग में रेखांकित", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -132,7 +167,7 @@ namespace KrutiDevWordAddIn
             }
         }
 
-        // 2. Auto-Fix all misspelled words and remove squiggly lines
+        // 3. Auto-Fix All and clear highlights
         public void OnAutoFixAll(IRibbonControl control)
         {
             try
@@ -144,7 +179,7 @@ namespace KrutiDevWordAddIn
                 var issues = spellEngine.CheckDocumentSpellingAndGrammar(docText);
                 if (issues.Count == 0)
                 {
-                    MessageBox.Show("कोई अशुद्धि नहीं मिली।", "स्वतः सुधार");
+                    MessageBox.Show("कोई त्रुटि नहीं मिली।", "स्वतः सुधार");
                     return;
                 }
 
@@ -155,6 +190,7 @@ namespace KrutiDevWordAddIn
                     findObj.ClearFormatting();
                     findObj.Replacement.ClearFormatting();
                     findObj.Replacement.Font.Underline = Word.WdUnderline.wdUnderlineNone;
+                    findObj.Replacement.Highlight = 0;
 
                     object findText = issue.OriginalWord;
                     object replaceWith = issue.SuggestedWord;
@@ -171,10 +207,11 @@ namespace KrutiDevWordAddIn
                     fixedCount++;
                 }
 
-                // Clear any remaining underlines
+                // Clear all underlines and highlights
                 doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
+                doc.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
 
-                MessageBox.Show("सफलतापूर्वक " + fixedCount + " अशुद्धियों का स्वतः सुधार कर दिया गया!", "स्वतः सुधार पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("सफलतापूर्वक " + fixedCount + " त्रुटियों को ठीक कर दिया गया!", "स्वतः सुधार पूर्ण", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -182,18 +219,16 @@ namespace KrutiDevWordAddIn
             }
         }
 
-        // 3. Toggle Inline Floating Popup
         public void OnToggleInlineSuggestions(IRibbonControl control)
         {
             if (inlineHook != null)
             {
                 inlineHook.IsEnabled = !inlineHook.IsEnabled;
                 string status = inlineHook.IsEnabled ? "चालू (ON)" : "बंद (OFF)";
-                MessageBox.Show("इनलाइन स्वतः पूर्ण सुझाव पॉपअप अब " + status + " है।", "इनलाइन सुझाव स्थिति");
+                MessageBox.Show("इनलाइन सुझाव पॉपअप अब " + status + " है।", "इनलाइन स्थिति");
             }
         }
 
-        // 4. Toggle Sidebar
         public void OnToggleSuggestionPane(IRibbonControl control)
         {
             try
