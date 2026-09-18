@@ -36,14 +36,8 @@ namespace KrutiDevWordAddIn
                 System.Diagnostics.Debug.WriteLine("Right click hook error: " + ex.Message);
             }
 
-            try
-            {
-                inlineHook = new GlobalInputHook(spellEngine, wordApp);
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine("Inline hook error: " + ex.Message);
-            }
+            // Note: Global keyboard hook disabled to prevent suggestion popup appearing across applications
+            inlineHook = null;
 
             // Real-time live proofing timer (scans active paragraph gently every 1.5 seconds)
             try

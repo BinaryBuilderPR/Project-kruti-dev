@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$dllPath = (Join-Path $scriptDir "KrutiDevWordAddIn.dll").Replace("\", "/")
+$dllPath = (Join-Path $scriptDir "KrutiDevWordAddIn_v2.dll").Replace("\", "/")
 $clsid = "{A789B1C2-3D4E-5F6A-7B8C-9D0E1F2A3B4C}"
 $progId = "KrutiDevWordAddIn.Connect"
 $codebaseUri = "file:///" + $dllPath

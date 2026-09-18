@@ -281,7 +281,7 @@ namespace KrutiDevWordAddIn
         private InlineSuggestionForm suggestionForm;
         private SpellCheckEngine spellEngine;
         private object wordApp;
-        public bool IsEnabled = true;
+        public bool IsEnabled = false;
 
         public GlobalInputHook(SpellCheckEngine engine, object app = null)
         {
@@ -376,15 +376,23 @@ namespace KrutiDevWordAddIn
                     }
                 }
 
-                // Handle Tab / Enter when suggestion window is active
-                if (suggestionForm.Visible && (key == Keys.Tab || key == Keys.Enter))
+                // Never auto-complete on Enter key. Enter simply dismisses the popup and passes through normally.
+                if (key == Keys.Enter)
+                {
+                    typedBuffer.Clear();
+                    suggestionForm.Dismiss();
+                    return CallNextHookEx(hookId, nCode, wParam, lParam);
+                }
+
+                // Handle Tab when suggestion window is active
+                if (suggestionForm.Visible && key == Keys.Tab)
                 {
                     string topUni = suggestionForm.GetCandidateUnicode(0);
                     string topKruti = suggestionForm.GetCandidateKruti(0);
                     if (!string.IsNullOrEmpty(topUni))
                     {
                         ReplaceBufferWithWord(topUni, topKruti);
-                        return (IntPtr)1; // Consume key
+                        return (IntPtr)1; // Consume Tab only
                     }
                 }
 
