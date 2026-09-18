@@ -17,10 +17,7 @@ namespace KrutiDevWordAddIn
         private Word.Application wordApp;
         private object addInInstance;
         private SpellCheckEngine spellEngine = new SpellCheckEngine();
-        private GlobalInputHook inlineHook = null;
         private SuggestionPaneForm suggestionPane = null;
-        private System.Windows.Forms.Timer liveProofingTimer = null;
-        private bool isLiveProofingEnabled = true;
 
         public void OnConnection(object Application, ext_ConnectMode ConnectMode, object AddInInst, ref Array custom)
         {
@@ -35,22 +32,9 @@ namespace KrutiDevWordAddIn
             {
                 System.Diagnostics.Debug.WriteLine("Right click hook error: " + ex.Message);
             }
-
-            // Note: Global keyboard hook disabled to prevent suggestion popup appearing across applications
-            inlineHook = null;
-
-            // Real-time live proofing timer (scans active paragraph gently every 1.5 seconds)
-            try
-            {
-                liveProofingTimer = new System.Windows.Forms.Timer();
-                liveProofingTimer.Interval = 1500;
-                liveProofingTimer.Tick += LiveProofingTimer_Tick;
-                liveProofingTimer.Start();
-            }
-            catch { }
         }
 
-        // Right-Click Context Menu Quick-Fix Provider
+        // Right-Click Context Menu Quick-Fix Provider (On-demand right click)
         private void WordApp_WindowBeforeRightClick(Word.Selection sel, ref bool cancel)
         {
             try
@@ -119,17 +103,6 @@ namespace KrutiDevWordAddIn
 
         public void OnDisconnection(ext_DisconnectMode RemoveMode, ref Array custom)
         {
-            if (liveProofingTimer != null)
-            {
-                liveProofingTimer.Stop();
-                liveProofingTimer.Dispose();
-                liveProofingTimer = null;
-            }
-            if (inlineHook != null)
-            {
-                inlineHook.Dispose();
-                inlineHook = null;
-            }
             if (suggestionPane != null && !suggestionPane.IsDisposed)
             {
                 suggestionPane.Close();
@@ -142,47 +115,7 @@ namespace KrutiDevWordAddIn
         public void OnStartupComplete(ref Array custom) { }
         public void OnBeginShutdown(ref Array custom) { }
 
-        // Live real-time paragraph scanner as you type
-        private void LiveProofingTimer_Tick(object sender, EventArgs e)
-        {
-            if (!isLiveProofingEnabled || wordApp == null || wordApp.Documents.Count == 0) return;
-
-            try
-            {
-                Word.Selection sel = wordApp.Selection;
-                if (sel == null || sel.Paragraphs.Count == 0) return;
-
-                Word.Paragraph p = sel.Paragraphs[1];
-                string pText = p.Range.Text;
-                if (string.IsNullOrEmpty(pText) || pText.Length < 3) return;
-
-                var issues = spellEngine.CheckDocumentSpellingAndGrammar(pText);
-                if (issues.Count > 0)
-                {
-                    foreach (var issue in issues)
-                    {
-                        Word.Range range = p.Range;
-                        Word.Find findObj = range.Find;
-                        findObj.ClearFormatting();
-                        findObj.Text = issue.OriginalWord;
-                        findObj.MatchCase = true;
-                        findObj.Forward = true;
-                        findObj.Wrap = Word.WdFindWrap.wdFindStop;
-
-                        while (findObj.Execute())
-                        {
-                            range.Underline = Word.WdUnderline.wdUnderlineWavy;
-                            range.Font.UnderlineColor = Word.WdColor.wdColorOrange;
-                            range.HighlightColorIndex = Word.WdColorIndex.wdTurquoise;
-                            range.Collapse(Word.WdCollapseDirection.wdCollapseEnd);
-                        }
-                    }
-                }
-            }
-            catch { }
-        }
-
-        // IRibbonExtensibility Implementation (Professional English Ribbon Toolbar)
+        // IRibbonExtensibility Implementation (Clean Professional English Ribbon Toolbar)
         public string GetCustomUI(string RibbonID)
         {
             return @"<customUI xmlns=""http://schemas.microsoft.com/office/2009/07/customui"">
@@ -190,11 +123,9 @@ namespace KrutiDevWordAddIn
     <tabs>
       <tab id=""tabKrutiDev"" label=""Kruti Dev Assistant"">
         <group id=""grpSpell"" label=""Proofing &amp; Auto-Fix"">
-          <button id=""btnHighlightErrors"" label=""Highlight Errors"" size=""large"" onAction=""OnHighlightErrors"" imageMso=""HighlightColorPicker"" />
           <button id=""btnAutoFix"" label=""Auto-Fix All"" size=""large"" onAction=""OnAutoFixAll"" imageMso=""AutoCorrect"" />
+          <button id=""btnHighlightErrors"" label=""Highlight Errors"" size=""large"" onAction=""OnHighlightErrors"" imageMso=""HighlightColorPicker"" />
           <button id=""btnClearHighlights"" label=""Clear Highlights"" size=""normal"" onAction=""OnClearHighlights"" imageMso=""ClearFormatting"" />
-          <button id=""btnToggleLiveProofing"" label=""Real-Time Proofing (On/Off)"" size=""normal"" onAction=""OnToggleLiveProofing"" imageMso=""SpellingAndGrammar"" />
-          <button id=""btnToggleInline"" label=""Inline Suggestions (On/Off)"" size=""normal"" onAction=""OnToggleInlineSuggestions"" imageMso=""GroupFont"" />
           <button id=""btnHideWordSquiggles"" label=""Hide Red Lines"" size=""normal"" onAction=""OnHideEnglishSquiggles"" imageMso=""ReviewShowBalloons"" />
         </group>
         <group id=""grpQuickInsert"" label=""Official Letter Blocks"">
@@ -214,13 +145,6 @@ namespace KrutiDevWordAddIn
 </customUI>";
         }
 
-        public void OnToggleLiveProofing(IRibbonControl control)
-        {
-            isLiveProofingEnabled = !isLiveProofingEnabled;
-            string status = isLiveProofingEnabled ? "ENABLED (ON)" : "DISABLED (OFF)";
-            MessageBox.Show("Real-time live spell & grammar checking is now " + status + ".\n\nAs you type, mistyped words in the active paragraph will be highlighted in real-time.", "Real-Time Proofing", MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
-
         public void OnClearHighlights(IRibbonControl control)
         {
             try
@@ -231,7 +155,7 @@ namespace KrutiDevWordAddIn
                 doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
                 doc.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
 
-                MessageBox.Show("All error highlights and wavy underlines have been cleared from the document.", "Highlights Cleared", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("All error highlights and underlines have been cleared.", "Highlights Cleared", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -262,20 +186,14 @@ namespace KrutiDevWordAddIn
         {
             try
             {
-                if (wordApp.Documents.Count == 0)
-                {
-                    MessageBox.Show("Please open a document in Microsoft Word first.", "Kruti Dev Assistant");
-                    return;
-                }
-
+                if (wordApp.Documents.Count == 0) return;
                 Word.Document doc = wordApp.ActiveDocument;
-                
-                doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
-                doc.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
-                doc.ShowSpellingErrors = false;
-                doc.Content.NoProofing = 1;
-
                 string docText = doc.Content.Text;
+
+                // Clear existing highlights first
+                doc.Content.HighlightColorIndex = Word.WdColorIndex.wdNoHighlight;
+                doc.Content.Underline = Word.WdUnderline.wdUnderlineNone;
+
                 var issues = spellEngine.CheckDocumentSpellingAndGrammar(docText);
 
                 if (issues.Count == 0)
@@ -367,16 +285,6 @@ namespace KrutiDevWordAddIn
             }
         }
 
-        public void OnToggleInlineSuggestions(IRibbonControl control)
-        {
-            if (inlineHook != null)
-            {
-                inlineHook.IsEnabled = !inlineHook.IsEnabled;
-                string status = inlineHook.IsEnabled ? "ENABLED (ON)" : "DISABLED (OFF)";
-                MessageBox.Show("Inline floating suggestion popup while typing is now " + status + ".\n\nType Remington/Kruti keys in Word to see 1..5 candidates appear right at your cursor!", "Inline Suggestions", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-        }
-
         public void OnToggleSuggestionPane(IRibbonControl control)
         {
             try
@@ -401,24 +309,17 @@ namespace KrutiDevWordAddIn
 
         public void OnInsertSender(IRibbonControl control)
         {
-            InsertTextToWord(
-@"प्रेषक -
-    जिला शिक्षा अधीक्षक -
-    सरायकेला-खरसावाँ।");
+            InsertTextToWord("izs\"kd]\n    funs'kd ¼izk0f'k0½\n    Ldwyh f'k{kk ,oa lk{kjrk foHkkx]\n    >kj[k.M] jk¡phA");
         }
 
         public void OnInsertSignature(IRibbonControl control)
         {
-            InsertTextToWord(
-@"विश्वासभाजन
-
-जिला शिक्षा अधीक्षक
-सरायकेला-खरसावाँ।");
+            InsertTextToWord("fo'oklHkktu\n\n\nftyk f'k{kk v/kh{kd\nljk;dsyk&[kjlkokaA");
         }
 
         public void OnInsertHeader(IRibbonControl control)
         {
-            InsertTextToWord(TemplatesData.HeaderBlock);
+            InsertTextToWord("dk;kZy; ftyk f'k{kk v/kh{kd] ljk;dsyk&[kjlkoka\n¼Ldwyh f'k{kk ,oa lk{kjrk foHkkx] >kj[k.M ljdkj½");
         }
 
         public void OnConvertToUnicode(IRibbonControl control)
@@ -426,19 +327,20 @@ namespace KrutiDevWordAddIn
             try
             {
                 if (wordApp.Documents.Count == 0) return;
-                string selText = wordApp.Selection.Text;
-                if (string.IsNullOrEmpty(selText) || string.IsNullOrEmpty(selText.Trim()))
+                Word.Selection sel = wordApp.Selection;
+                if (sel == null || string.IsNullOrEmpty(sel.Text))
                 {
-                    selText = wordApp.ActiveDocument.Content.Text;
+                    MessageBox.Show("Please select some Kruti Dev text in your document first.", "No Text Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
                 }
 
-                string unicodeText = KrutiDevConverter.KrutiToUnicode(selText);
-                Clipboard.SetText(unicodeText);
-                MessageBox.Show("Converted Kruti Dev text to Unicode Hindi and copied to Clipboard!", "Conversion Complete", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                string converted = KrutiDevConverter.KrutiToUnicode(sel.Text);
+                sel.Text = converted;
+                sel.Font.Name = "Mangal";
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message, "Kruti Dev Assistant");
+                MessageBox.Show("Error converting to Unicode: " + ex.Message, "Kruti Dev Assistant");
             }
         }
 
@@ -447,16 +349,20 @@ namespace KrutiDevWordAddIn
             try
             {
                 if (wordApp.Documents.Count == 0) return;
-                string selText = wordApp.Selection.Text;
-                if (string.IsNullOrEmpty(selText) || string.IsNullOrEmpty(selText.Trim())) return;
+                Word.Selection sel = wordApp.Selection;
+                if (sel == null || string.IsNullOrEmpty(sel.Text))
+                {
+                    MessageBox.Show("Please select some Unicode Hindi text in your document first.", "No Text Selected", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
 
-                string krutiText = KrutiDevConverter.UnicodeToKruti(selText);
-                wordApp.Selection.Font.Name = "Kruti Dev 010";
-                wordApp.Selection.TypeText(krutiText);
+                string converted = KrutiDevConverter.UnicodeToKruti(sel.Text);
+                sel.Text = converted;
+                sel.Font.Name = "Kruti Dev 010";
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message, "Kruti Dev Assistant");
+                MessageBox.Show("Error converting to Kruti Dev: " + ex.Message, "Kruti Dev Assistant");
             }
         }
 
@@ -464,23 +370,18 @@ namespace KrutiDevWordAddIn
         {
             try
             {
-                if (wordApp.Documents.Count == 0)
-                {
-                    wordApp.Documents.Add();
-                }
+                if (wordApp.Documents.Count == 0) return;
                 Word.Selection sel = wordApp.Selection;
-                if (sel.Font.Name != null && sel.Font.Name.ToLower().Contains("kruti"))
+                if (sel != null)
                 {
-                    sel.TypeText(KrutiDevConverter.UnicodeToKruti(text) + "\n");
-                }
-                else
-                {
-                    sel.TypeText(text + "\n");
+                    sel.Text = text + "\n";
+                    sel.Font.Name = "Kruti Dev 010";
+                    sel.Font.Size = 14;
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Error: " + ex.Message, "Kruti Dev Assistant");
+                MessageBox.Show("Error inserting template: " + ex.Message, "Kruti Dev Assistant");
             }
         }
     }
